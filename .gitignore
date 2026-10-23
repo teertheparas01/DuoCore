@@ -45,3 +45,8 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# Root brief copies
+/AGENT_OPERATING_GUIDE.md
+/AIDFLOW_PROJECT_BRIEF.md
+
