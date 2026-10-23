@@ -1,4 +1,5 @@
 import {
+  AlertCircle,
   AlertTriangle,
   ArrowRight,
   Boxes,
@@ -10,6 +11,7 @@ import {
   Filter,
   HandCoins,
   Inbox,
+  Layers,
   ListChecks,
   LogOut,
   MapPin,
@@ -22,14 +24,17 @@ import {
   Search,
   Send,
   Shield,
+  ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
   Train,
+  TrendingUp,
   Truck,
   User,
   Warehouse,
   X,
+  Zap,
 } from "lucide-react";
 import { useCallback, useState } from "react";
 import { mapMarkers, roleById } from "../data";
@@ -157,6 +162,80 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
     },
   ]);
 
+  // Dispatch queue state for Dispatch Board
+  const [dispatchQueue, setDispatchQueue] = useState([
+    {
+      id: "DSP-301",
+      origin: "FC Road Community Kitchen",
+      destination: "Shivaji Nagar Rain Basera",
+      cargo: "85 Warm Meals (26 kg)",
+      recommendedRider: "Rider 04 (Akash)",
+      vehicle: "Hero Electric E-Scooter",
+      matchScore: "98%",
+      eta: "14 min",
+      expiryMargin: "32 min remaining",
+      status: "Pending Approval",
+    },
+    {
+      id: "DSP-302",
+      origin: "Gokhale Institute Mess",
+      destination: "COEP Night Shelter",
+      cargo: "50 Chapati Packs (18 kg)",
+      recommendedRider: "Rider 07 (Rahul)",
+      vehicle: "Activa + Insulated Box",
+      matchScore: "94%",
+      eta: "11 min",
+      expiryMargin: "55 min remaining",
+      status: "Pending Approval",
+    },
+    {
+      id: "DSP-303",
+      origin: "JM Road Annapurna Center",
+      destination: "Sangam Ghat Relief Camp",
+      cargo: "24 Tiffin Meals (14 kg)",
+      recommendedRider: "Rider 11 (Priya)",
+      vehicle: "Cargo Cycle",
+      matchScore: "89%",
+      eta: "8 min",
+      expiryMargin: "18 min remaining (URGENT)",
+      status: "Critical Priority",
+    },
+  ]);
+
+  // Interventions alert list
+  const [interventions, setInterventions] = useState([
+    {
+      id: "INT-801",
+      type: "EXPIRY_DEADLINE",
+      severity: "critical",
+      title: "Batch #90 on JM Road reaching 18-minute critical threshold",
+      details: "Original destination shelter reporting gate queue delay. Temperature dropped to 54°C.",
+      recommendation: "Divert shipment to Agricultural College Cold Hub (1.1 km away).",
+      actionLabel: "Divert to Cold Storage Hub",
+      status: "Action Required",
+    },
+    {
+      id: "INT-802",
+      type: "CAPACITY_MISMATCH",
+      severity: "warning",
+      title: "FC Road Kitchen batch (26 kg) exceeds Rider 11's cargo limit (20 kg)",
+      details: "Attempted assignment causes 6 kg safety overload on two-wheeler carrier.",
+      recommendation: "Split donation into two 13 kg sub-batches across Rider 11 & Rider 04.",
+      actionLabel: "Auto-Split & Dispatch Dual Riders",
+      status: "Action Required",
+    },
+    {
+      id: "INT-803",
+      type: "TRAFFIC_BOTTLENECK",
+      severity: "notice",
+      title: "Sancheti Chowk junction congestion (+12 min delay)",
+      details: "Peak hour traffic bottleneck detected on Shivaji Road underpass.",
+      recommendation: "Push alternate route via Dengle Bridge to all 3 active en-route carriers.",
+      actionLabel: "Broadcast Dengle Bridge Bypass",
+      status: "Action Required",
+    },
+  ]);
+
   const [newRequestModal, setNewRequestModal] = useState(false);
   const [newBatchModal, setNewBatchModal] = useState(false);
 
@@ -169,6 +248,18 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
   const fulfillRequest = (id: string) => {
     setRequestsList((prev) =>
       prev.map((r) => (r.id === id ? { ...r, status: "In Transit" } : r))
+    );
+  };
+
+  const approveDispatch = (id: string) => {
+    setDispatchQueue((prev) =>
+      prev.map((d) => (d.id === id ? { ...d, status: "Dispatched (En Route)" } : d))
+    );
+  };
+
+  const resolveIntervention = (id: string) => {
+    setInterventions((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, status: "Resolved & Executed" } : item))
     );
   };
 
@@ -675,62 +766,333 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
                   ))}
                 </div>
               </div>
-            ) : activeNav === "Dispatch board" || activeNav === "Interventions" || activeNav === "Network" ? (
-              /* COORDINATOR DISPATCH BOARD / INTERVENTIONS */
+            ) : activeNav === "Dispatch board" ? (
+              /* ── DISTINCT PAGE 1: COORDINATOR DISPATCH BOARD ── */
               <div className="page-view-container slide-up">
                 <div className="page-header">
                   <div>
-                    <h2>Coordinator Operations & Automated Dispatch</h2>
-                    <p>Algorithm matching surplus cooking batches against shelter deficits across Shivaji Nagar.</p>
+                    <h2>Dispatch Board & Automated Load Matching</h2>
+                    <p>Live capacity-aware engine matching surplus kitchens with shelter demand across Shivaji Nagar.</p>
                   </div>
-                  <button
-                    className="primary-button macos-primary-button"
-                    onClick={() => alert("Auto-Dispatch engine recalculating fastest routes across Dengle & Sangam Bridges.")}
-                  >
-                    <RefreshCw size={15} />
-                    <span>Run Smart Auto-Dispatch</span>
-                  </button>
+                  <div className="header-stat-pills">
+                    <button
+                      className="primary-button macos-primary-button"
+                      onClick={() => alert("Smart matching engine executed: 3 candidate pairings optimized.")}
+                    >
+                      <Zap size={16} />
+                      <span>Auto-Match All (3 Pending)</span>
+                    </button>
+                  </div>
                 </div>
 
+                {/* Queue Summary Grid */}
                 <div className="coordinator-metrics-grid">
                   <div className="metric-card accent-yellow macos-glass-card">
-                    <small>Active Donors</small>
-                    <strong>12 Kitchens</strong>
+                    <small>Pending Pairing</small>
+                    <strong>3 Batches</strong>
                   </div>
                   <div className="metric-card accent-blue macos-glass-card">
-                    <small>Open Shelters</small>
-                    <strong>8 Rain Baseras</strong>
+                    <small>Available Riders</small>
+                    <strong>7 Carriers</strong>
                   </div>
                   <div className="metric-card accent-green macos-glass-card">
-                    <small>Moving Today</small>
-                    <strong>485 kg</strong>
+                    <small>Route Match Rate</small>
+                    <strong>98.2%</strong>
                   </div>
                   <div className="metric-card accent-red macos-glass-card">
-                    <small>Critical Expiry Risk</small>
-                    <strong>2 Batches</strong>
+                    <small>Short-Window Runs</small>
+                    <strong>1 Priority</strong>
                   </div>
                 </div>
 
-                <div className="interventions-panel macos-glass-card" style={{ marginTop: 20 }}>
-                  <div className="interventions-header">
-                    <AlertTriangle size={18} color="var(--red)" />
-                    <h3>Priority Interventions Required</h3>
+                {/* Dispatch Matching Queue Cards */}
+                <div className="dispatch-queue-list">
+                  <div className="queue-section-title">
+                    <Layers size={16} color="var(--blue)" />
+                    <h3>Algorithmic Pairings Ready for Dispatch</h3>
                   </div>
-                  <div className="interventions-list">
-                    <div className="intervention-item">
-                      <div>
-                        <strong>Batch #90 on JM Road expiring in 18 minutes</strong>
-                        <p>Destination shelter near capacity. Auto-rerouting to Agricultural College Cold Hub suggested.</p>
+
+                  {dispatchQueue.map((item) => (
+                    <GlassCard className="dispatch-queue-card macos-glass-card" key={item.id}>
+                      <div className="dispatch-card-header">
+                        <div className="dispatch-badge-cluster">
+                          <span className="req-id-badge">{item.id}</span>
+                          <span className="match-score-badge">
+                            <Sparkles size={12} /> {item.matchScore} Compatibility
+                          </span>
+                        </div>
+                        <span className={`status-badge status-${item.status === "Pending Approval" ? "ready-for-pickup" : item.status === "Critical Priority" ? "critical-window" : "in-transit"}`}>
+                          {item.status}
+                        </span>
                       </div>
-                      <button
-                        className="macos-glass-button"
-                        style={{ color: "var(--yellow)", borderColor: "var(--yellow)" }}
-                        onClick={() => alert("Reroute command transmitted to Rider 04's navigation screen.")}
-                      >
-                        Confirm Reroute to Cold Hub
-                      </button>
+
+                      {/* Route Path Flow */}
+                      <div className="dispatch-flow-box">
+                        <div className="flow-node">
+                          <Warehouse size={15} color="var(--yellow)" />
+                          <div>
+                            <small>Donation Source</small>
+                            <strong>{item.origin}</strong>
+                          </div>
+                        </div>
+                        <div className="flow-arrow">
+                          <ArrowRight size={16} />
+                          <small>{item.eta} transit</small>
+                        </div>
+                        <div className="flow-node">
+                          <MapPin size={15} color="var(--blue)" />
+                          <div>
+                            <small>Target Shelter</small>
+                            <strong>{item.destination}</strong>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Cargo and Rider Specs */}
+                      <div className="dispatch-specs-row">
+                        <span>📦 <strong>Cargo:</strong> {item.cargo}</span>
+                        <span>🛵 <strong>Assigned Carrier:</strong> {item.recommendedRider} ({item.vehicle})</span>
+                        <span className="clock-tag"><Clock size={13} /> {item.expiryMargin}</span>
+                      </div>
+
+                      <div className="dispatch-card-actions">
+                        {item.status.includes("Pending") || item.status.includes("Priority") ? (
+                          <button
+                            className="primary-button macos-primary-button"
+                            onClick={() => approveDispatch(item.id)}
+                          >
+                            <Send size={15} /> Approve & Dispatch Assignment
+                          </button>
+                        ) : (
+                          <div className="transit-indicator">
+                            <CheckCircle2 size={16} color="var(--green)" />
+                            <span>Run Active & Telemetry Transmitted to Rider</span>
+                          </div>
+                        )}
+                        <button
+                          className="macos-glass-button"
+                          onClick={() => alert(`Opening manual route override tool for ${item.id}.`)}
+                        >
+                          <SlidersHorizontal size={14} /> Manual Override
+                        </button>
+                      </div>
+                    </GlassCard>
+                  ))}
+                </div>
+              </div>
+            ) : activeNav === "Interventions" ? (
+              /* ── DISTINCT PAGE 2: CRITICAL BOTTLENECKS & INTERVENTIONS ── */
+              <div className="page-view-container slide-up">
+                <div className="page-header">
+                  <div>
+                    <h2>Live Interventions & Bottleneck Management</h2>
+                    <p>Real-time exception handling: preventing spoilage, rerouting around bottlenecks, and load rebalancing.</p>
+                  </div>
+                  <div className="header-stat-pills">
+                    <span className="macos-glass-pill" style={{ padding: "6px 14px", fontSize: "0.8rem", color: "var(--red)", border: "1px solid rgba(255, 95, 86, 0.4)" }}>
+                      ⚠️ 3 Active Network Exceptions
+                    </span>
+                  </div>
+                </div>
+
+                {/* Critical Interventions Stack */}
+                <div className="interventions-desk-stack">
+                  {interventions.map((alertItem) => (
+                    <GlassCard
+                      className={`intervention-card macos-glass-card border-${alertItem.severity}`}
+                      key={alertItem.id}
+                    >
+                      <div className="intervention-card-header">
+                        <div className="alert-title-wrap">
+                          <AlertTriangle
+                            size={20}
+                            color={alertItem.severity === "critical" ? "var(--red)" : alertItem.severity === "warning" ? "var(--yellow)" : "var(--blue)"}
+                          />
+                          <div>
+                            <span className="eyebrow" style={{ color: alertItem.severity === "critical" ? "var(--red)" : "var(--yellow)" }}>
+                              {alertItem.type}
+                            </span>
+                            <h3>{alertItem.title}</h3>
+                          </div>
+                        </div>
+                        <span className={`status-badge status-${alertItem.status.toLowerCase().replace(/[^a-z0-9]/g, "-")}`}>
+                          {alertItem.status}
+                        </span>
+                      </div>
+
+                      <p className="intervention-detail-text">{alertItem.details}</p>
+
+                      <div className="intervention-recommendation-box">
+                        <Zap size={15} color="var(--yellow)" />
+                        <div>
+                          <strong>Algorithmic Recommendation:</strong>
+                          <span> {alertItem.recommendation}</span>
+                        </div>
+                      </div>
+
+                      <div className="intervention-action-bar">
+                        {alertItem.status === "Action Required" ? (
+                          <button
+                            className="primary-button macos-primary-button"
+                            onClick={() => resolveIntervention(alertItem.id)}
+                          >
+                            <ShieldCheck size={16} />
+                            <span>{alertItem.actionLabel}</span>
+                          </button>
+                        ) : (
+                          <div className="transit-indicator">
+                            <CheckCircle2 size={16} color="var(--green)" />
+                            <span>Intervention Executed & Logged to Audit Mesh</span>
+                          </div>
+                        )}
+                        <button
+                          className="macos-glass-button"
+                          onClick={() => alert(`Contacting volunteer dispatch leads for ${alertItem.id}.`)}
+                        >
+                          Escalate to Field Lead
+                        </button>
+                      </div>
+                    </GlassCard>
+                  ))}
+                </div>
+
+                {/* Resolved Today Log */}
+                <div className="interventions-history macos-glass-card" style={{ marginTop: 24, padding: 18 }}>
+                  <div className="history-head">
+                    <CheckCircle2 size={16} color="var(--green)" />
+                    <h4>Interventions Resolved Today (Shivaji Nagar Sector)</h4>
+                  </div>
+                  <div className="activity-list" style={{ marginTop: 10 }}>
+                    <div className="activity-item macos-glass-card">
+                      <span className="activity-dot dot-green" />
+                      <div className="activity-content">
+                        <p><strong>Batch #84 (45 meals)</strong> successfully diverted to Agricultural College Cold Hub before 15m expiration.</p>
+                        <time>48 min ago · Resolved by Vikram Gaikwad</time>
+                      </div>
+                    </div>
+                    <div className="activity-item macos-glass-card">
+                      <span className="activity-dot dot-blue" />
+                      <div className="activity-content">
+                        <p><strong>Rain Basera Intake Congestion:</strong> Overflow of 20 kits safely split to Sangam Ghat Relief Camp.</p>
+                        <time>1 hr 20 min ago · Resolved Automatically</time>
+                      </div>
                     </div>
                   </div>
+                </div>
+              </div>
+            ) : activeNav === "Network" ? (
+              /* ── DISTINCT PAGE 3: SHIVAJI NAGAR NETWORK TELEMETRY & ANALYTICS ── */
+              <div className="page-view-container slide-up">
+                <div className="page-header">
+                  <div>
+                    <h2>Shivaji Nagar Network Telemetry & Infrastructure</h2>
+                    <p>Live sector analytics, bridge transit throughput, and cold-chain capacity tracking.</p>
+                  </div>
+                  <div className="header-stat-pills">
+                    <span className="macos-glass-pill" style={{ padding: "6px 14px", fontSize: "0.8rem", color: "var(--green)" }}>
+                      ● Network Health: 98.4%
+                    </span>
+                  </div>
+                </div>
+
+                {/* City Sector KPIs */}
+                <div className="network-kpi-grid">
+                  <div className="metric-card accent-yellow macos-glass-card">
+                    <small>Total Aid Moved Today</small>
+                    <strong>485 kg</strong>
+                    <span className="kpi-sub">1,240 hot meals delivered</span>
+                  </div>
+                  <div className="metric-card accent-blue macos-glass-card">
+                    <small>Average Transit Time</small>
+                    <strong>14.2 min</strong>
+                    <span className="kpi-sub">-3.4 min faster than benchmark</span>
+                  </div>
+                  <div className="metric-card accent-green macos-glass-card">
+                    <small>Zero-Spoilage Index</small>
+                    <strong>99.1%</strong>
+                    <span className="kpi-sub">Zero spoiled batches reported</span>
+                  </div>
+                  <div className="metric-card accent-red macos-glass-card">
+                    <small>Active Route Bottlenecks</small>
+                    <strong>1 Zone</strong>
+                    <span className="kpi-sub">Sancheti Chowk underpass</span>
+                  </div>
+                </div>
+
+                {/* Sector Grid Breakdown */}
+                <h3 style={{ marginTop: 10 }}>Shivaji Nagar Sector Mesh Performance</h3>
+                <div className="sector-performance-grid">
+                  {[
+                    {
+                      sector: "Sector 01: FC Road Corridor",
+                      donors: "6 Active Kitchens",
+                      riders: "4 Carriers",
+                      speed: "12 min avg",
+                      compliance: "100% On-Time",
+                      status: "Optimal",
+                    },
+                    {
+                      sector: "Sector 02: JM Road Commercial Strip",
+                      donors: "4 Food Centers",
+                      riders: "5 Carriers",
+                      speed: "14 min avg",
+                      compliance: "96.4% On-Time",
+                      status: "Optimal",
+                    },
+                    {
+                      sector: "Sector 03: COEP & Sangam Riverfront",
+                      donors: "3 Shelters / Camps",
+                      riders: "5 Carriers",
+                      speed: "16 min avg",
+                      compliance: "98.1% On-Time",
+                      status: "Moderate Traffic",
+                    },
+                    {
+                      sector: "Sector 04: Agri College & ST Depot",
+                      donors: "2 Cold Storage Hubs",
+                      riders: "4 Carriers",
+                      speed: "10 min avg",
+                      compliance: "100% On-Time",
+                      status: "Optimal",
+                    },
+                  ].map((sec, idx) => (
+                    <GlassCard className="sector-card macos-glass-card" key={idx}>
+                      <div className="sector-card-top">
+                        <h4>{sec.sector}</h4>
+                        <span className="status-badge status-scheduled">{sec.status}</span>
+                      </div>
+                      <div className="sector-stats-list">
+                        <div><small>Supply Nodes</small><strong>{sec.donors}</strong></div>
+                        <div><small>Active Logistics</small><strong>{sec.riders}</strong></div>
+                        <div><small>Delivery Speed</small><strong>{sec.speed}</strong></div>
+                        <div><small>Safe Arrival</small><strong style={{ color: "var(--green)" }}>{sec.compliance}</strong></div>
+                      </div>
+                    </GlassCard>
+                  ))}
+                </div>
+
+                {/* Bridges and River Corridor Infrastructure */}
+                <h3 style={{ marginTop: 14 }}>Bridge & River Corridor Telemetry</h3>
+                <div className="bridges-telemetry-grid">
+                  {[
+                    { bridge: "Sangam Bridge (COEP Link)", state: "Clear & Fast", travelTime: "4 mins", flow: "Normal Flow (420 veh/hr)" },
+                    { bridge: "Dengle Bridge (River Crossing)", state: "Clear", travelTime: "6 mins", flow: "Normal Flow (310 veh/hr)" },
+                    { bridge: "Shivaji Bridge (Old City Gate)", state: "Heavy Traffic", travelTime: "11 mins", flow: "Dense (650 veh/hr)" },
+                    { bridge: "Mutha River Water Level", state: "Safe / Baseline", travelTime: "1.2m depth", flow: "Flood Gate Open: 0%" },
+                  ].map((bridge, i) => (
+                    <div className="bridge-item-card macos-glass-card" key={i}>
+                      <div className="bridge-top">
+                        <strong>{bridge.bridge}</strong>
+                        <span className={`status-badge ${bridge.state.includes("Heavy") ? "status-critical-window" : "status-scheduled"}`}>
+                          {bridge.state}
+                        </span>
+                      </div>
+                      <div className="bridge-details">
+                        <span>⏱️ Transit: <strong>{bridge.travelTime}</strong></span>
+                        <span>🌊 Status: {bridge.flow}</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             ) : (

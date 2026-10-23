@@ -1858,34 +1858,257 @@ button {
   gap: 12px;
 }
 
-.interventions-panel {
-  padding: 20px;
-  border-left: 3px solid var(--red);
+/* ── DISTINCT PAGE 1: DISPATCH BOARD STYLES ────────────────────────── */
+.dispatch-queue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
-.interventions-header {
+.queue-section-title {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-top: 10px;
 }
-.intervention-item {
+.queue-section-title h3 {
+  font-size: 1.05rem;
+  font-weight: 850;
+}
+.dispatch-queue-card {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.dispatch-card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px;
-  background: rgba(255, 95, 86, 0.08);
-  border: 1px solid rgba(255, 95, 86, 0.2);
+}
+.dispatch-badge-cluster {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.match-score-badge {
+  font-size: 0.72rem;
+  font-weight: 850;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background: rgba(245, 197, 66, 0.16);
+  color: var(--yellow);
+  border: 1px solid rgba(245, 197, 66, 0.35);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dispatch-flow-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-sm);
 }
-.intervention-item strong {
+.flow-node {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.flow-node strong {
   display: block;
+  font-size: 0.9rem;
+  color: #FFFFFF;
+}
+.flow-node small {
+  font-size: 0.68rem;
+  color: var(--cream-muted);
+  text-transform: uppercase;
+  font-weight: 800;
+}
+.flow-arrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: var(--blue);
+  font-weight: 800;
+  font-size: 0.72rem;
+}
+
+.dispatch-specs-row {
+  display: flex;
+  gap: 18px;
+  font-size: 0.8rem;
+  color: var(--cream-muted);
+  font-weight: 600;
+  flex-wrap: wrap;
+}
+.dispatch-specs-row strong {
+  color: var(--cream);
+}
+.dispatch-card-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* ── DISTINCT PAGE 2: INTERVENTIONS DESK STYLES ────────────────────── */
+.interventions-desk-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.intervention-card {
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-left-width: 4px;
+}
+.intervention-card.border-critical {
+  border-left-color: var(--red);
+}
+.intervention-card.border-warning {
+  border-left-color: var(--yellow);
+}
+.intervention-card.border-notice {
+  border-left-color: var(--blue);
+}
+
+.intervention-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.alert-title-wrap {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.alert-title-wrap h3 {
+  font-size: 1.05rem;
+  font-weight: 850;
+  margin-top: 2px;
+}
+
+.intervention-detail-text {
+  font-size: 0.86rem;
+  color: var(--cream-muted);
+  font-weight: 550;
+}
+.intervention-recommendation-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: rgba(245, 197, 66, 0.08);
+  border: 1px solid rgba(245, 197, 66, 0.2);
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  color: var(--cream);
+}
+.intervention-recommendation-box strong {
+  color: var(--yellow);
+}
+.intervention-action-bar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.interventions-history .history-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.interventions-history h4 {
+  font-size: 0.94rem;
+  font-weight: 850;
+}
+
+/* ── DISTINCT PAGE 3: NETWORK TELEMETRY & ANALYTICS ────────────────── */
+.network-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.kpi-sub {
+  font-size: 0.68rem;
+  color: var(--cream-muted);
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.sector-performance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+.sector-card {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.sector-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.sector-card-top h4 {
+  font-size: 0.95rem;
+  font-weight: 850;
+}
+.sector-stats-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.sector-stats-list small {
+  display: block;
+  font-size: 0.66rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--cream-muted);
+}
+.sector-stats-list strong {
   font-size: 0.88rem;
   color: #FFFFFF;
 }
-.intervention-item p {
+
+.bridges-telemetry-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+.bridge-item-card {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--glass-border);
+}
+.bridge-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.bridge-top strong {
+  font-size: 0.88rem;
+  font-weight: 850;
+  color: #FFFFFF;
+}
+.bridge-details {
+  display: flex;
+  justify-content: space-between;
   font-size: 0.78rem;
   color: var(--cream-muted);
-  margin-top: 2px;
+  font-weight: 600;
 }
 
 /* Activity Full List */
