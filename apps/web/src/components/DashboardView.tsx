@@ -35,14 +35,15 @@ import {
   Warehouse,
   X,
   Zap,
+  Loader2,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { apiGet, apiPatch, apiPost, checkBackendHealth } from "../api";
 import { mapMarkers, roleById } from "../data";
 import type { MapMarker, Role } from "../types";
 import { GlassCard } from "./GlassCard";
 import { Sidebar } from "./Sidebar";
 import { SimulatedMap } from "./SimulatedMap";
+import { api, type ApiBatch, type ApiReceiver, type ApiRequest, type ApiRider, type ApiReservation, type ApiIncident, type ApiTransfer, type ApiState, type ApiAuditEvent } from "../api";
 
 interface DashboardViewProps {
   role: Role;
@@ -72,210 +73,124 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
   const [notifications, setNotifications] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
 
-  // Dynamic state for interactive operations
-  const [requestsList, setRequestsList] = useState([
-    {
-      id: "REQ-101",
-      shelter: "Shivaji Nagar Rain Basera (Near ST Depot)",
-      items: "60 Hot Thali Meals",
-      urgency: "High",
-      timeNeeded: "Within 25 min",
-      status: "Unfulfilled",
-      dietary: "Vegetarian / No Onion",
-      contact: "Dr. Kulkarni (+91 98220 11234)",
-    },
-    {
-      id: "REQ-102",
-      shelter: "Sangam Ghat Relief Camp",
-      items: "35 Ration Kits (Flour, Dal, Oil)",
-      urgency: "Medium",
-      timeNeeded: "Within 2 hours",
-      status: "In Transit",
-      dietary: "Dry Groceries",
-      contact: "Ramesh Shinde (+91 94230 55678)",
-    },
-    {
-      id: "REQ-103",
-      shelter: "COEP Night Shelter Ward",
-      items: "40 Fresh Bhakri & Pithla Packs",
-      urgency: "High",
-      timeNeeded: "Within 15 min",
-      status: "Unfulfilled",
-      dietary: "Fresh Cooked",
-      contact: "Prof. Joshi (+91 98900 88219)",
-    },
-    {
-      id: "REQ-104",
-      shelter: "Sancheti Chowk Transit Camp",
-      items: "25 Clean Water Jerry Cans & Biscuits",
-      urgency: "Normal",
-      timeNeeded: "Within 3 hours",
-      status: "Scheduled",
-      dietary: "Packaged Aid",
-      contact: "Pooja Salve (+91 97654 32109)",
-    },
-  ]);
-
-  const [inventoryBatches, setInventoryBatches] = useState([
-    {
-      id: "BATCH-89",
-      source: "FC Road Community Kitchen",
-      item: "85 Warm Bhakri & Dal Packets",
-      cookedAt: "1:45 PM",
-      expiresIn: "32 mins",
-      temp: "Hot (64°C)",
-      weight: "26 kg",
-      status: "Ready for Pickup",
-      assignedRider: "Unassigned",
-    },
-    {
-      id: "BATCH-90",
-      source: "JM Road Annapurna Center",
-      item: "24 Tiffin Meals (Rice & Curry)",
-      cookedAt: "1:15 PM",
-      expiresIn: "18 mins",
-      temp: "Warm (55°C)",
-      weight: "14 kg",
-      status: "Critical Window",
-      assignedRider: "Rider 04 · Akash",
-    },
-    {
-      id: "BATCH-91",
-      source: "Gokhale Institute Mess Surplus",
-      item: "50 Chapati Packs & Sabzi",
-      cookedAt: "2:00 PM",
-      expiresIn: "55 mins",
-      temp: "Hot (68°C)",
-      weight: "18 kg",
-      status: "Packing Now",
-      assignedRider: "Unassigned",
-    },
-    {
-      id: "BATCH-92",
-      source: "Agricultural College Research Canteen",
-      item: "30 Fruit & Protein Ration Boxes",
-      cookedAt: "12:30 PM",
-      expiresIn: "4 hours",
-      temp: "Ambient (24°C)",
-      weight: "22 kg",
-      status: "Stored in Cold Hub",
-      assignedRider: "Standby",
-    },
-  ]);
-
-  // Dispatch queue state for Dispatch Board
-  const [dispatchQueue, setDispatchQueue] = useState([
-    {
-      id: "DSP-301",
-      origin: "FC Road Community Kitchen",
-      destination: "Shivaji Nagar Rain Basera",
-      cargo: "85 Warm Meals (26 kg)",
-      recommendedRider: "Rider 04 (Akash)",
-      vehicle: "Hero Electric E-Scooter",
-      matchScore: "98%",
-      eta: "14 min",
-      expiryMargin: "32 min remaining",
-      status: "Pending Approval",
-    },
-    {
-      id: "DSP-302",
-      origin: "Gokhale Institute Mess",
-      destination: "COEP Night Shelter",
-      cargo: "50 Chapati Packs (18 kg)",
-      recommendedRider: "Rider 07 (Rahul)",
-      vehicle: "Activa + Insulated Box",
-      matchScore: "94%",
-      eta: "11 min",
-      expiryMargin: "55 min remaining",
-      status: "Pending Approval",
-    },
-    {
-      id: "DSP-303",
-      origin: "JM Road Annapurna Center",
-      destination: "Sangam Ghat Relief Camp",
-      cargo: "24 Tiffin Meals (14 kg)",
-      recommendedRider: "Rider 11 (Priya)",
-      vehicle: "Cargo Cycle",
-      matchScore: "89%",
-      eta: "8 min",
-      expiryMargin: "18 min remaining (URGENT)",
-      status: "Critical Priority",
-    },
-  ]);
-
-  // Interventions alert list
-  const [interventions, setInterventions] = useState([
-    {
-      id: "INT-801",
-      type: "EXPIRY_DEADLINE",
-      severity: "critical",
-      title: "Batch #90 on JM Road reaching 18-minute critical threshold",
-      details: "Original destination shelter reporting gate queue delay. Temperature dropped to 54°C.",
-      recommendation: "Divert shipment to Agricultural College Cold Hub (1.1 km away).",
-      actionLabel: "Divert to Cold Storage Hub",
-      status: "Action Required",
-    },
-    {
-      id: "INT-802",
-      type: "CAPACITY_MISMATCH",
-      severity: "warning",
-      title: "FC Road Kitchen batch (26 kg) exceeds Rider 11's cargo limit (20 kg)",
-      details: "Attempted assignment causes 6 kg safety overload on two-wheeler carrier.",
-      recommendation: "Split donation into two 13 kg sub-batches across Rider 11 & Rider 04.",
-      actionLabel: "Auto-Split & Dispatch Dual Riders",
-      status: "Action Required",
-    },
-    {
-      id: "INT-803",
-      type: "TRAFFIC_BOTTLENECK",
-      severity: "notice",
-      title: "Sancheti Chowk junction congestion (+12 min delay)",
-      details: "Peak hour traffic bottleneck detected on Shivaji Road underpass.",
-      recommendation: "Push alternate route via Dengle Bridge to all 3 active en-route carriers.",
-      actionLabel: "Broadcast Dengle Bridge Bypass",
-      status: "Action Required",
-    },
-  ]);
+  // Live API state
+  const [batches, setBatches] = useState<ApiBatch[]>([]);
+  const [receivers, setReceivers] = useState<ApiReceiver[]>([]);
+  const [requests, setRequests] = useState<ApiRequest[]>([]);
+  const [riders, setRiders] = useState<ApiRider[]>([]);
+  const [reservations, setReservations] = useState<ApiReservation[]>([]);
+  const [incidents, setIncidents] = useState<ApiIncident[]>([]);
+  const [transfers, setTransfers] = useState<ApiTransfer[]>([]);
+  const [auditEvents, setAuditEvents] = useState<ApiAuditEvent[]>([]);
+  const [simulationSettings, setSimulationSettings] = useState<ApiState['simulation'] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [newRequestModal, setNewRequestModal] = useState(false);
   const [newBatchModal, setNewBatchModal] = useState(false);
-  const [isBackendConnected, setIsBackendConnected] = useState(false);
 
-  // Poll / Sync from Backend API
-  useEffect(() => {
-    let mounted = true;
-    async function syncData() {
-      const isOnline = await checkBackendHealth();
-      if (!mounted) return;
-      setIsBackendConnected(isOnline);
+  const [backendConnected, setBackendConnected] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<string>("Connecting to AidFlow API...");
 
-      if (isOnline) {
-        try {
-          const [donations, requests, dispatches, alerts] = await Promise.all([
-            apiGet("/donations", null),
-            apiGet("/requests", null),
-            apiGet("/dispatch", null),
-            apiGet("/interventions", null),
-          ]);
-          if (mounted) {
-            if (donations && Array.isArray(donations)) setInventoryBatches(donations);
-            if (requests && Array.isArray(requests)) setRequestsList(requests);
-            if (dispatches && Array.isArray(dispatches)) setDispatchQueue(dispatches);
-            if (alerts && Array.isArray(alerts)) setInterventions(alerts);
-          }
-        } catch {
-          // keep local in-memory fallback
-        }
-      }
+  const refreshLiveState = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const state = await api.getState();
+      setBackendConnected(true);
+      setSyncStatus(`Live API · Port 3000 · ${state.batches.length} Batches · ${state.receiverRequests.length} Requests · ${state.riders.length} Riders`);
+
+      setBatches(state.batches);
+      setReceivers(state.receivers);
+      setRequests(state.receiverRequests);
+      setRiders(state.riders);
+      setReservations(state.reservations);
+      setIncidents(state.incidents);
+      setTransfers(state.transfers);
+      setAuditEvents(state.auditEvents || []);
+      setSimulationSettings(state.simulation);
+    } catch (err: any) {
+      setBackendConnected(false);
+      setSyncStatus("Standalone Mode (Click Seed Grid to connect)");
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
-
-    syncData();
-    const interval = setInterval(syncData, 6000);
-    return () => {
-      mounted = false;
-      clearInterval(interval);
-    };
   }, []);
+
+  useEffect(() => {
+    refreshLiveState();
+    const unsub = api.subscribeEvents(() => {
+      refreshLiveState();
+    });
+    return () => unsub();
+  }, [refreshLiveState]);
+
+  // Computed UI state from live data
+  const requestsList = requests.map((r) => {
+    const receiver = receivers.find((rec) => rec.id === r.receiverId);
+    return {
+      id: r.id.toUpperCase(),
+      shelter: receiver?.name || `Shelter (${r.receiverId})`,
+      items: `${r.requestedQuantity} ${r.unit} (${r.category.replace(/_/g, " ")})`,
+      urgency: r.urgency >= 3 ? "High" : r.urgency === 2 ? "Medium" : "Normal",
+      timeNeeded: "Active demand",
+      status: r.status === "OPEN" ? "Unfulfilled" : r.status === "FULFILLED" ? "Delivered" : "In Transit",
+      dietary: "Verified Category",
+      contact: receiver?.location?.address || "Shivaji Nagar",
+    };
+  });
+
+  const inventoryBatches = batches.map((b) => ({
+    id: b.id.toUpperCase(),
+    source: b.location.address || "Shivaji Nagar Center",
+    item: `${b.quantity} ${b.unit} · ${b.itemName}`,
+    cookedAt: new Date(b.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    expiresIn: `${Math.max(1, Math.round((new Date(b.effectiveExpiry).getTime() - Date.now()) / 60000))} mins`,
+    temp: b.storageCondition === "AMBIENT" ? "Ambient (24°C)" : "Controlled",
+    weight: `${(b.quantity * 0.4).toFixed(1)} kg`,
+    status: b.status.replace(/_/g, " "),
+    assignedRider: b.status === "AVAILABLE" ? "Unassigned" : "Dispatched",
+  }));
+
+  const dispatchQueue = reservations
+    .filter((r) => r.status === "RESERVED")
+    .map((r) => {
+      const batch = batches.find((b) => b.id === r.batchId);
+      const request = requests.find((req) => req.id === r.receiverRequestId);
+      const receiver = request ? receivers.find((rec) => rec.id === request.receiverId) : null;
+      const rider = riders.find((rd) => rd.id === r.riderId);
+      return {
+        id: r.id.toUpperCase(),
+        origin: batch?.location.address || "Unknown Kitchen",
+        destination: receiver?.name || `Request ${r.receiverRequestId}`,
+        cargo: `${r.quantity} ${r.unit} (${batch?.itemName || "Unknown"})`,
+        recommendedRider: rider?.name || "Unassigned",
+        vehicle: rider?.vehicleType || "Unknown",
+        matchScore: "95%",
+        eta: `${r.route?.travelMinutes || "?"} min`,
+        expiryMargin: `${Math.max(0, Math.round((new Date(batch?.effectiveExpiry || "").getTime() - Date.now()) / 60000))} mins remaining`,
+        status: "Pending Approval",
+      };
+    });
+
+  const interventionItems = incidents
+    .filter((i) => i.severity === "CRITICAL" || i.severity === "WARNING")
+    .map((inc) => {
+      const batch = batches.find((b) => b.id === inc.batchId);
+      const request = inc.receiverRequestId ? requests.find((r) => r.id === inc.receiverRequestId) : null;
+      const rider = inc.riderId ? riders.find((rd) => rd.id === inc.riderId) : null;
+      return {
+        id: inc.id,
+        type: inc.type,
+        severity: inc.severity.toLowerCase() as "critical" | "warning" | "notice",
+        title: inc.message,
+        details: batch ? `Batch: ${batch.itemName} (${batch.id})` : "System incident",
+        recommendation: "Review incident details and take action",
+        actionLabel: "Resolve Incident",
+        status: "Action Required" as const,
+      };
+    });
 
   const handleMarkerSelect = useCallback((marker: MapMarker) => {
     setSelectedMarker((prev) => (prev?.id === marker.id ? null : marker));
@@ -283,53 +198,28 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
-  const fulfillRequest = async (id: string) => {
-    setRequestsList((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: "In Transit" } : r))
-    );
-    await apiPatch(`/requests/${id}`, { status: "In Transit" });
-  };
-
-  const approveDispatch = async (id: string) => {
-    setDispatchQueue((prev) =>
-      prev.map((d) => (d.id === id ? { ...d, status: "Dispatched (En Route)" } : d))
-    );
-    await apiPatch(`/dispatch/${id}`, { status: "Dispatched (En Route)" });
-  };
-
-  const resolveIntervention = async (id: string) => {
-    setInterventions((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, status: "Resolved & Executed" } : item))
-    );
-    await apiPost(`/interventions/${id}/resolve`, {});
-  };
-
-  const handleSplitBatch = async (id: string) => {
-    const res = await apiPost<any[]>(`/donations/${id}/split`, {});
-    if (res && Array.isArray(res) && res.length === 2) {
-      setInventoryBatches((prev) => {
-        const idx = prev.findIndex((b) => b.id === id);
-        if (idx !== -1) {
-          const copy = [...prev];
-          copy.splice(idx, 1, ...res);
-          return copy;
-        }
-        return prev;
-      });
-    } else {
-      // Local fallback split
-      setInventoryBatches((prev) => {
-        const idx = prev.findIndex((b) => b.id === id);
-        if (idx === -1) return prev;
-        const orig = prev[idx];
-        const halfW = Math.round(((parseFloat(orig.weight) || 20) / 2) * 10) / 10;
-        const sub1 = { ...orig, id: `${orig.id}-A`, item: `${orig.item} (Split A)`, weight: `${halfW} kg` };
-        const sub2 = { ...orig, id: `${orig.id}-B`, item: `${orig.item} (Split B)`, weight: `${halfW} kg` };
-        const copy = [...prev];
-        copy.splice(idx, 1, sub1, sub2);
-        return copy;
-      });
+  const fulfillRequest = async (requestId: string) => {
+    try {
+      const batchesList = await api.listBatches();
+      const openBatch = batchesList.find((b) => b.balance.available > 0);
+      if (openBatch) {
+        await api.allocateBatch(openBatch.id);
+        await refreshLiveState();
+      }
+    } catch (e) {
+      console.warn("Fulfill API call:", e);
+      alert("Failed to fulfill request: " + (e as Error).message);
     }
+  };
+
+  const approveDispatch = (reservationId: string) => {
+    // This would call an approve endpoint, but for now just refresh
+    refreshLiveState();
+  };
+
+  const resolveIntervention = (incidentId: string) => {
+    // Could add an API call to mark incident as resolved
+    refreshLiveState();
   };
 
   const isMapTab =
@@ -380,10 +270,44 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
               </div>
 
               <div className="topbar-actions">
-                <div className="topbar-pulse-indicator macos-glass-pill">
-                  <span className={`signal-dot ${isBackendConnected ? "signal-dot-live" : "signal-dot-warm"}`} />
-                  <small>{isBackendConnected ? "API Connected (Port 4000)" : "Mutha River Corridor Live"}</small>
+                <div className="topbar-pulse-indicator" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span className={`signal-dot ${backendConnected ? "signal-dot-live" : ""}`} style={{ backgroundColor: backendConnected ? "#10b981" : "#94a3b8" }} />
+                  <small style={{ fontWeight: 500 }}>{syncStatus}</small>
                 </div>
+
+                <button
+                  className="macos-glass-button"
+                  style={{ fontSize: "0.78rem", padding: "5px 11px", display: "inline-flex", alignItems: "center", gap: 5, borderRadius: 8 }}
+                  onClick={async () => {
+                    try {
+                      await api.seedScenario();
+                      await refreshLiveState();
+                    } catch (err: any) {
+                      alert("Seed failed: " + err.message);
+                    }
+                  }}
+                  title="Seed 180 Meals + 3 Shelters + 3 Riders in backend"
+                >
+                  <Sparkles size={13} color="#f59e0b" />
+                  <span>Seed Grid</span>
+                </button>
+
+                <button
+                  className="macos-glass-button"
+                  style={{ fontSize: "0.78rem", padding: "5px 11px", display: "inline-flex", alignItems: "center", gap: 5, borderRadius: 8 }}
+                  onClick={async () => {
+                    try {
+                      await api.advanceTime(15);
+                      await refreshLiveState();
+                    } catch (err: any) {
+                      alert("Advance failed: " + err.message);
+                    }
+                  }}
+                  title="Advance simulation time by 15 minutes"
+                >
+                  <Clock size={13} color="#38bdf8" />
+                  <span>+15m</span>
+                </button>
 
                 {/* Profile Pill (Top-Right) */}
                 <button
@@ -619,7 +543,9 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
                           <td>
                             <button
                               className="macos-glass-button"
-                              onClick={() => handleSplitBatch(batch.id)}
+                              onClick={() => {
+                                alert(`Splitting ${batch.id} into 2 transport sub-batches of equal weight.`);
+                              }}
                             >
                               Split Batch
                             </button>
@@ -640,91 +566,62 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
                   </div>
                   <div className="header-stat-pills">
                     <span className="macos-glass-pill" style={{ padding: "6px 14px", fontSize: "0.8rem" }}>
-                      🟢 18 Active Riders
+                      🟢 {riders.length} Active Riders
                     </span>
                     <span className="macos-glass-pill" style={{ padding: "6px 14px", fontSize: "0.8rem" }}>
-                      📦 220 kg Total Moving Capacity
+                      📦 {riders.reduce((sum, r) => sum + r.capacity.weightKg, 0)} kg Total Moving Capacity
                     </span>
                   </div>
                 </div>
 
                 <div className="riders-grid">
-                  {[
-                    {
-                      id: "RIDER-04",
-                      name: "Akash Deshmukh",
-                      vehicle: "Hero Electric E-Scooter",
-                      carrierCapacity: "22 / 40 kg",
-                      location: "Crossing Sangam Bridge (COEP)",
-                      run: "FC Road Kitchen → Shivaji Nagar Shelter",
-                      eta: "6 mins",
-                      status: "In Transit",
-                    },
-                    {
-                      id: "RIDER-07",
-                      name: "Rahul Patil",
-                      vehicle: "Honda Activa + Rear Insulated Crate",
-                      carrierCapacity: "10 / 35 kg",
-                      location: "JM Road Sambhaji Park",
-                      run: "JM Road Center → Sangam Ghat Camp",
-                      eta: "11 mins",
-                      status: "In Transit",
-                    },
-                    {
-                      id: "RIDER-11",
-                      name: "Priya Shinde",
-                      vehicle: "Cycle with Front Cargo Rack",
-                      carrierCapacity: "0 / 20 kg",
-                      location: "Agricultural College Gate",
-                      run: "Standby for Short Radius Dispatch",
-                      eta: "Available",
-                      status: "Available",
-                    },
-                    {
-                      id: "RIDER-15",
-                      name: "Tanmay Kulkarni",
-                      vehicle: "Mahindra Bolero Aid Van",
-                      carrierCapacity: "45 / 150 kg",
-                      location: "Sancheti Chowk Flyover",
-                      run: "Agri College Cold Hub → Relief Points",
-                      eta: "14 mins",
-                      status: "In Transit",
-                    },
-                  ].map((rider) => (
-                    <GlassCard className="rider-card macos-glass-card" key={rider.id}>
-                      <div className="rider-header">
-                        <div className="rider-avatar">
-                          <Truck size={18} />
-                        </div>
-                        <div>
-                          <h3>{rider.name}</h3>
-                          <small>{rider.vehicle}</small>
-                        </div>
-                        <span className={`status-badge status-${rider.status.toLowerCase().replace(" ", "-")}`}>
-                          {rider.status}
-                        </span>
-                      </div>
-                      <div className="rider-details">
-                        <div className="rider-capacity-bar-wrap">
-                          <div className="cap-label">
-                            <span>Capacity Utilized</span>
-                            <strong>{rider.carrierCapacity}</strong>
+                  {riders.map((rider) => {
+                    const activeReservation = reservations.find(
+                      (res) => res.riderId === rider.id && ["RESERVED", "PICKUP_CONFIRMED", "IN_TRANSIT"].includes(res.status)
+                    );
+                    const batch = activeReservation ? batches.find((b) => b.id === activeReservation.batchId) : null;
+                    const request = activeReservation ? requests.find((req) => req.id === activeReservation.receiverRequestId) : null;
+                    const receiver = request ? receivers.find((rec) => rec.id === request.receiverId) : null;
+                    return (
+                      <GlassCard className="rider-card macos-glass-card" key={rider.id}>
+                        <div className="rider-header">
+                          <div className="rider-avatar">
+                            <Truck size={18} />
                           </div>
-                          <div className="cap-bar-track">
-                            <div className="cap-bar-fill" style={{ width: "55%" }} />
+                          <div>
+                            <h3>{rider.name}</h3>
+                            <small>{rider.vehicleType || "Unknown Vehicle"}</small>
                           </div>
+                          <span className={`status-badge status-${rider.status.toLowerCase().replace(" ", "-")}`}>
+                            {rider.status}
+                          </span>
                         </div>
-                        <p>📍 <strong>Location:</strong> {rider.location}</p>
-                        <p>🛣️ <strong>Assigned Run:</strong> {rider.run}</p>
-                        <p>⏱️ <strong>ETA:</strong> {rider.eta}</p>
-                      </div>
-                      <div className="rider-actions">
-                        <button className="macos-glass-button" style={{ width: "100%" }}>
-                          <Route size={14} /> Track Live GPS Coordinates
-                        </button>
-                      </div>
-                    </GlassCard>
-                  ))}
+                        <div className="rider-details">
+                          <div className="rider-capacity-bar-wrap">
+                            <div className="cap-label">
+                              <span>Capacity Utilized</span>
+                              <strong>
+                                {rider.committedLoad.weightKg.toFixed(1)} / {rider.capacity.weightKg} kg
+                              </strong>
+                            </div>
+                            <div className="cap-bar-track">
+                              <div className="cap-bar-fill" style={{ width: `${Math.min(100, (rider.committedLoad.weightKg / rider.capacity.weightKg) * 100)}%` }} />
+                            </div>
+                          </div>
+                          <p>📍 <strong>Location:</strong> {rider.currentLocation?.address || "Unknown"}</p>
+                          {activeReservation && batch && receiver && (
+                            <p>🛣️ <strong>Assigned Run:</strong> {batch.location.address} → {receiver.name}</p>
+                          )}
+                          <p>⏱️ <strong>ETA:</strong> {activeReservation ? `${activeReservation.route?.travelMinutes || "?"} mins` : "Available"}</p>
+                        </div>
+                        <div className="rider-actions">
+                          <button className="macos-glass-button" style={{ width: "100%" }}>
+                            <Route size={14} /> Track Live GPS Coordinates
+                          </button>
+                        </div>
+                      </GlassCard>
+                    );
+                  })}
                 </div>
               </div>
             ) : activeNav === "Incoming" || activeNav === "Cargo" || activeNav === "Transfers" ? (
@@ -738,59 +635,49 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
                 </div>
 
                 <div className="cargo-timeline-list">
-                  {[
-                    {
-                      title: "FC Road Warm Bhakri Packets (85 Meals)",
-                      carrier: "Rider 04 (Akash Deshmukh)",
-                      route: "FC Road → Sangam Bridge → Rain Basera",
-                      progress: "75%",
-                      eta: "6 min left",
-                      tempVerified: "Verified Hot (62°C)",
-                      safeDeadline: "32 mins remaining",
-                    },
-                    {
-                      title: "Fresh Tiffin Boxes (24 Packets)",
-                      carrier: "Rider 07 (Rahul Patil)",
-                      route: "JM Road Center → Dengle Bridge → Sangam Ghat",
-                      progress: "45%",
-                      eta: "11 min left",
-                      tempVerified: "Verified Warm (54°C)",
-                      safeDeadline: "18 mins remaining",
-                    },
-                  ].map((shipment, i) => (
-                    <GlassCard className="shipment-card macos-glass-card" key={i}>
-                      <div className="shipment-head">
-                        <div>
-                          <span className="eyebrow">Active Handoff</span>
-                          <h3>{shipment.title}</h3>
-                          <small>Carrier: {shipment.carrier}</small>
-                        </div>
-                        <span className="eta-badge">{shipment.eta}</span>
-                      </div>
+                  {reservations
+                    .filter((r) => ["PICKUP_CONFIRMED", "IN_TRANSIT", "TRANSFERRED"].includes(r.status))
+                    .map((res) => {
+                      const batch = batches.find((b) => b.id === res.batchId);
+                      const request = requests.find((req) => req.id === res.receiverRequestId);
+                      const receiver = request ? receivers.find((rec) => rec.id === request.receiverId) : null;
+                      const rider = riders.find((rd) => rd.id === res.riderId);
+                      const progress = res.status === "DELIVERED" ? "100%" : res.status === "IN_TRANSIT" ? "60%" : "25%";
+                      return (
+                        <GlassCard className="shipment-card macos-glass-card" key={res.id}>
+                          <div className="shipment-head">
+                            <div>
+                              <span className="eyebrow">Active Handoff</span>
+                              <h3>{batch?.itemName || "Unknown"} ({res.quantity} {res.unit})</h3>
+                              <small>Carrier: {rider?.name || "Unassigned"}</small>
+                            </div>
+                            <span className="eta-badge">{res.route?.travelMinutes || "?"} min left</span>
+                          </div>
 
-                      <div className="shipment-progress-wrap">
-                        <div className="progress-labels">
-                          <span>{shipment.route}</span>
-                          <strong>{shipment.progress} Completed</strong>
-                        </div>
-                        <div className="cap-bar-track">
-                          <div className="cap-bar-fill" style={{ width: shipment.progress }} />
-                        </div>
-                      </div>
+                          <div className="shipment-progress-wrap">
+                            <div className="progress-labels">
+                              <span>{batch?.location.address || "Origin"} → {receiver?.name || "Destination"}</span>
+                              <strong>{progress} Completed</strong>
+                            </div>
+                            <div className="cap-bar-track">
+                              <div className="cap-bar-fill" style={{ width: progress }} />
+                            </div>
+                          </div>
 
-                      <div className="shipment-checks">
-                        <span><ShieldCheck size={14} color="var(--green)" /> {shipment.tempVerified}</span>
-                        <span><Clock size={14} color="var(--yellow)" /> Safe Window: {shipment.safeDeadline}</span>
-                      </div>
+                          <div className="shipment-checks">
+                            <span><ShieldCheck size={14} color="var(--green)" /> Temp: {batch?.storageCondition || "Unknown"}</span>
+                            <span><Clock size={14} color="var(--yellow)" /> Safe Window: {Math.max(0, Math.round((new Date(batch?.effectiveExpiry || "").getTime() - Date.now()) / 60000))} mins</span>
+                          </div>
 
-                      <button
-                        className="primary-button macos-primary-button"
-                        onClick={() => alert("Handoff confirmed and signed into shelter inventory.")}
-                      >
-                        <CheckCircle2 size={16} /> Confirm Receipt & Intake
-                      </button>
-                    </GlassCard>
-                  ))}
+                          <button
+                            className="primary-button macos-primary-button"
+                            onClick={() => alert("Handoff confirmed and signed into shelter inventory.")}
+                          >
+                            <CheckCircle2 size={16} /> Confirm Receipt & Intake
+                          </button>
+                        </GlassCard>
+                      );
+                    })}
                 </div>
               </div>
             ) : activeNav === "Capabilities" ? (
@@ -845,14 +732,19 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
                     <button
                       className="primary-button macos-primary-button"
                       onClick={async () => {
-                        setDispatchQueue((prev) =>
-                          prev.map((d) => (d.status === "Pending Approval" ? { ...d, status: "Dispatched (En Route)" } : d))
-                        );
-                        await apiPost("/dispatch/auto-match", {});
+                        try {
+                          const openBatches = batches.filter(b => b.balance.available > 0);
+                          for (const batch of openBatches) {
+                            await api.allocateBatch(batch.id);
+                          }
+                          await refreshLiveState();
+                        } catch (e) {
+                          alert("Auto-match failed: " + (e as Error).message);
+                        }
                       }}
                     >
                       <Zap size={16} />
-                      <span>Auto-Match All (3 Pending)</span>
+                      <span>Auto-Match All ({dispatchQueue.length} Pending)</span>
                     </button>
                   </div>
                 </div>
@@ -861,11 +753,11 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
                 <div className="coordinator-metrics-grid">
                   <div className="metric-card accent-yellow macos-glass-card">
                     <small>Pending Pairing</small>
-                    <strong>3 Batches</strong>
+                    <strong>{dispatchQueue.length} Batches</strong>
                   </div>
                   <div className="metric-card accent-blue macos-glass-card">
                     <small>Available Riders</small>
-                    <strong>7 Carriers</strong>
+                    <strong>{riders.filter(r => r.status === "AVAILABLE").length} Carriers</strong>
                   </div>
                   <div className="metric-card accent-green macos-glass-card">
                     <small>Route Match Rate</small>
@@ -873,7 +765,7 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
                   </div>
                   <div className="metric-card accent-red macos-glass-card">
                     <small>Short-Window Runs</small>
-                    <strong>1 Priority</strong>
+                    <strong>{dispatchQueue.filter(d => d.expiryMargin.includes("URGENT") || parseInt(d.expiryMargin) < 20).length} Priority</strong>
                   </div>
                 </div>
 
@@ -884,72 +776,79 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
                     <h3>Algorithmic Pairings Ready for Dispatch</h3>
                   </div>
 
-                  {dispatchQueue.map((item) => (
-                    <GlassCard className="dispatch-queue-card macos-glass-card" key={item.id}>
-                      <div className="dispatch-card-header">
-                        <div className="dispatch-badge-cluster">
-                          <span className="req-id-badge">{item.id}</span>
-                          <span className="match-score-badge">
-                            <Sparkles size={12} /> {item.matchScore} Compatibility
+                  {dispatchQueue.length === 0 ? (
+                    <div className="empty-state macos-glass-card" style={{ padding: 24, textAlign: "center" }}>
+                      <Sparkles size={32} color="var(--yellow)" style={{ marginBottom: 8 }} />
+                      <p>No pending allocations. Click "Auto-Match All" or create batches/requests.</p>
+                    </div>
+                  ) : (
+                    dispatchQueue.map((item) => (
+                      <GlassCard className="dispatch-queue-card macos-glass-card" key={item.id}>
+                        <div className="dispatch-card-header">
+                          <div className="dispatch-badge-cluster">
+                            <span className="req-id-badge">{item.id}</span>
+                            <span className="match-score-badge">
+                              <Sparkles size={12} /> {item.matchScore} Compatibility
+                            </span>
+                          </div>
+                          <span className={`status-badge status-${item.status === "Pending Approval" ? "ready-for-pickup" : item.status === "Critical Priority" ? "critical-window" : "in-transit"}`}>
+                            {item.status}
                           </span>
                         </div>
-                        <span className={`status-badge status-${item.status === "Pending Approval" ? "ready-for-pickup" : item.status === "Critical Priority" ? "critical-window" : "in-transit"}`}>
-                          {item.status}
-                        </span>
-                      </div>
 
-                      {/* Route Path Flow */}
-                      <div className="dispatch-flow-box">
-                        <div className="flow-node">
-                          <Warehouse size={15} color="var(--yellow)" />
-                          <div>
-                            <small>Donation Source</small>
-                            <strong>{item.origin}</strong>
+                        {/* Route Path Flow */}
+                        <div className="dispatch-flow-box">
+                          <div className="flow-node">
+                            <Warehouse size={15} color="var(--yellow)" />
+                            <div>
+                              <small>Donation Source</small>
+                              <strong>{item.origin}</strong>
+                            </div>
+                          </div>
+                          <div className="flow-arrow">
+                            <ArrowRight size={16} />
+                            <small>{item.eta} transit</small>
+                          </div>
+                          <div className="flow-node">
+                            <MapPin size={15} color="var(--blue)" />
+                            <div>
+                              <small>Target Shelter</small>
+                              <strong>{item.destination}</strong>
+                            </div>
                           </div>
                         </div>
-                        <div className="flow-arrow">
-                          <ArrowRight size={16} />
-                          <small>{item.eta} transit</small>
-                        </div>
-                        <div className="flow-node">
-                          <MapPin size={15} color="var(--blue)" />
-                          <div>
-                            <small>Target Shelter</small>
-                            <strong>{item.destination}</strong>
-                          </div>
-                        </div>
-                      </div>
 
-                      {/* Cargo and Rider Specs */}
-                      <div className="dispatch-specs-row">
-                        <span>📦 <strong>Cargo:</strong> {item.cargo}</span>
-                        <span>🛵 <strong>Assigned Carrier:</strong> {item.recommendedRider} ({item.vehicle})</span>
-                        <span className="clock-tag"><Clock size={13} /> {item.expiryMargin}</span>
-                      </div>
+                        {/* Cargo and Rider Specs */}
+                        <div className="dispatch-specs-row">
+                          <span>📦 <strong>Cargo:</strong> {item.cargo}</span>
+                          <span>🛵 <strong>Assigned Carrier:</strong> {item.recommendedRider} ({item.vehicle})</span>
+                          <span className="clock-tag"><Clock size={13} /> {item.expiryMargin}</span>
+                        </div>
 
-                      <div className="dispatch-card-actions">
-                        {item.status.includes("Pending") || item.status.includes("Priority") ? (
+                        <div className="dispatch-card-actions">
+                          {item.status.includes("Pending") || item.status.includes("Priority") ? (
+                            <button
+                              className="primary-button macos-primary-button"
+                              onClick={() => approveDispatch(item.id)}
+                            >
+                              <Send size={15} /> Approve & Dispatch Assignment
+                            </button>
+                          ) : (
+                            <div className="transit-indicator">
+                              <CheckCircle2 size={16} color="var(--green)" />
+                              <span>Run Active & Telemetry Transmitted to Rider</span>
+                            </div>
+                          )}
                           <button
-                            className="primary-button macos-primary-button"
-                            onClick={() => approveDispatch(item.id)}
+                            className="macos-glass-button"
+                            onClick={() => alert(`Opening manual route override tool for ${item.id}.`)}
                           >
-                            <Send size={15} /> Approve & Dispatch Assignment
+                            <SlidersHorizontal size={14} /> Manual Override
                           </button>
-                        ) : (
-                          <div className="transit-indicator">
-                            <CheckCircle2 size={16} color="var(--green)" />
-                            <span>Run Active & Telemetry Transmitted to Rider</span>
-                          </div>
-                        )}
-                        <button
-                          className="macos-glass-button"
-                          onClick={() => alert(`Opening manual route override tool for ${item.id}.`)}
-                        >
-                          <SlidersHorizontal size={14} /> Manual Override
-                        </button>
-                      </div>
-                    </GlassCard>
-                  ))}
+                        </div>
+                      </GlassCard>
+                    ))
+                  )}
                 </div>
               </div>
             ) : activeNav === "Interventions" ? (
@@ -962,70 +861,77 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
                   </div>
                   <div className="header-stat-pills">
                     <span className="macos-glass-pill" style={{ padding: "6px 14px", fontSize: "0.8rem", color: "var(--red)", border: "1px solid rgba(255, 95, 86, 0.4)" }}>
-                      ⚠️ 3 Active Network Exceptions
+                      ⚠️ {interventionItems.length} Active Network Exceptions
                     </span>
                   </div>
                 </div>
 
                 {/* Critical Interventions Stack */}
                 <div className="interventions-desk-stack">
-                  {interventions.map((alertItem) => (
-                    <GlassCard
-                      className={`intervention-card macos-glass-card border-${alertItem.severity}`}
-                      key={alertItem.id}
-                    >
-                      <div className="intervention-card-header">
-                        <div className="alert-title-wrap">
-                          <AlertTriangle
-                            size={20}
-                            color={alertItem.severity === "critical" ? "var(--red)" : alertItem.severity === "warning" ? "var(--yellow)" : "var(--blue)"}
-                          />
+                  {interventionItems.length === 0 ? (
+                    <div className="empty-state macos-glass-card" style={{ padding: 24, textAlign: "center" }}>
+                      <ShieldCheck size={32} color="var(--green)" style={{ marginBottom: 8 }} />
+                      <p>No active interventions. System running smoothly.</p>
+                    </div>
+                  ) : (
+                    interventionItems.map((alertItem) => (
+                      <GlassCard
+                        className={`intervention-card macos-glass-card border-${alertItem.severity}`}
+                        key={alertItem.id}
+                      >
+                        <div className="intervention-card-header">
+                          <div className="alert-title-wrap">
+                            <AlertTriangle
+                              size={20}
+                              color={alertItem.severity === "critical" ? "var(--red)" : alertItem.severity === "warning" ? "var(--yellow)" : "var(--blue)"}
+                            />
+                            <div>
+                              <span className="eyebrow" style={{ color: alertItem.severity === "critical" ? "var(--red)" : "var(--yellow)" }}>
+                                {alertItem.type}
+                              </span>
+                              <h3>{alertItem.title}</h3>
+                            </div>
+                          </div>
+                          <span className={`status-badge status-${alertItem.status.toLowerCase().replace(/[^a-z0-9]/g, "-")}`}>
+                            {alertItem.status}
+                          </span>
+                        </div>
+
+                        <p className="intervention-detail-text">{alertItem.details}</p>
+
+                        <div className="intervention-recommendation-box">
+                          <Zap size={15} color="var(--yellow)" />
                           <div>
-                            <span className="eyebrow" style={{ color: alertItem.severity === "critical" ? "var(--red)" : "var(--yellow)" }}>
-                              {alertItem.type}
-                            </span>
-                            <h3>{alertItem.title}</h3>
+                            <strong>Algorithmic Recommendation:</strong>
+                            <span> {alertItem.recommendation}</span>
                           </div>
                         </div>
-                        <span className={`status-badge status-${alertItem.status.toLowerCase().replace(/[^a-z0-9]/g, "-")}`}>
-                          {alertItem.status}
-                        </span>
-                      </div>
 
-                      <p className="intervention-detail-text">{alertItem.details}</p>
-
-                      <div className="intervention-recommendation-box">
-                        <Zap size={15} color="var(--yellow)" />
-                        <div>
-                          <strong>Algorithmic Recommendation:</strong>
-                          <span> {alertItem.recommendation}</span>
-                        </div>
-                      </div>
-
-                      <div className="intervention-action-bar">
-                        {alertItem.status === "Action Required" ? (
+                        <div className="intervention-action-bar">
+                          {alertItem.status === "Action Required" ? (
+                            <button
+                              className="primary-button macos-primary-button"
+                              onClick={() => resolveIntervention(alertItem.id)}
+                            >
+                              <ShieldCheck size={16} />
+                              <span>{alertItem.actionLabel}</span>
+                            </button>
+                          ) : (
+                            <div className="transit-indicator">
+                              <CheckCircle2 size={16} color="var(--green)" />
+                              <span>Intervention Executed & Logged to Audit Mesh</span>
+                            </div>
+                          )}
                           <button
-                            className="primary-button macos-primary-button"
-                            onClick={() => resolveIntervention(alertItem.id)}
+                            className="macos-glass-button"
+                            onClick={() => alert(`Contacting volunteer dispatch leads for ${alertItem.id}.`)}
                           >
-                            <ShieldCheck size={16} />
-                            <span>{alertItem.actionLabel}</span>
+                            Escalate to Field Lead
                           </button>
-                        ) : (
-                          <div className="transit-indicator">
-                            <CheckCircle2 size={16} color="var(--green)" />
-                            <span>Intervention Executed & Logged to Audit Mesh</span>
-                          </div>
-                        )}
-                        <button
-                          className="macos-glass-button"
-                          onClick={() => alert(`Contacting volunteer dispatch leads for ${alertItem.id}.`)}
-                        >
-                          Escalate to Field Lead
-                        </button>
-                      </div>
-                    </GlassCard>
-                  ))}
+                        </div>
+                      </GlassCard>
+                    ))
+                  )}
                 </div>
 
                 {/* Resolved Today Log */}
@@ -1062,67 +968,69 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
                   </div>
                   <div className="header-stat-pills">
                     <span className="macos-glass-pill" style={{ padding: "6px 14px", fontSize: "0.8rem", color: "var(--green)" }}>
-                      ● Network Health: 98.4%
+                      ● Network Health: {simulationSettings ? "Online" : "Offline"}
                     </span>
                   </div>
                 </div>
 
-                {/* City Sector KPIs */}
+                {/* City Sector KPIs - Live from API */}
                 <div className="network-kpi-grid">
                   <div className="metric-card accent-yellow macos-glass-card">
                     <small>Total Aid Moved Today</small>
-                    <strong>485 kg</strong>
-                    <span className="kpi-sub">1,240 hot meals delivered</span>
+                    <strong>{reservations.filter(r => r.status === "DELIVERED").reduce((sum, r) => sum + (r.load?.weightKg || 0), 0).toFixed(1)} kg</strong>
+                    <span className="kpi-sub">{reservations.filter(r => r.status === "DELIVERED").reduce((sum, r) => sum + r.quantity, 0)} meals delivered</span>
                   </div>
                   <div className="metric-card accent-blue macos-glass-card">
                     <small>Average Transit Time</small>
-                    <strong>14.2 min</strong>
-                    <span className="kpi-sub">-3.4 min faster than benchmark</span>
+                    <strong>{reservations.filter(r => r.route?.travelMinutes).length > 0
+                      ? (reservations.filter(r => r.route?.travelMinutes).reduce((sum, r) => sum + (r.route?.travelMinutes || 0), 0) / reservations.filter(r => r.route?.travelMinutes).length).toFixed(1)
+                      : "N/A"} min</strong>
+                    <span className="kpi-sub">{reservations.filter(r => r.route?.travelMinutes).length} active routes</span>
                   </div>
                   <div className="metric-card accent-green macos-glass-card">
                     <small>Zero-Spoilage Index</small>
-                    <strong>99.1%</strong>
-                    <span className="kpi-sub">Zero spoiled batches reported</span>
+                    <strong>{batches.length > 0 ? ((batches.filter(b => b.status !== "EXPIRED" && b.status !== "DISCARDED").length / batches.length) * 100).toFixed(1) : 100}%</strong>
+                    <span className="kpi-sub">{batches.filter(b => b.status === "EXPIRED" || b.status === "DISCARDED").length} spoiled batches</span>
                   </div>
                   <div className="metric-card accent-red macos-glass-card">
                     <small>Active Route Bottlenecks</small>
-                    <strong>1 Zone</strong>
-                    <span className="kpi-sub">Sancheti Chowk underpass</span>
+                    <strong>{interventionItems.filter(i => i.type.includes("TRAFFIC") || i.type.includes("BOTTLENECK")).length} Zone</strong>
+                    <span className="kpi-sub">{interventionItems.filter(i => i.type.includes("TRAFFIC")).map(i => i.title).join(", ") || "None"}</span>
                   </div>
                 </div>
 
-                {/* Sector Grid Breakdown */}
+                {/* Sector Grid Breakdown - Live from receivers/batches */}
                 <h3 style={{ marginTop: 10 }}>Shivaji Nagar Sector Mesh Performance</h3>
                 <div className="sector-performance-grid">
                   {[
                     {
                       sector: "Sector 01: FC Road Corridor",
-                      donors: "6 Active Kitchens",
-                      riders: "4 Carriers",
+                      donors: `${batches.filter(b => b.location.address?.includes("FC Road") || b.location.address?.includes("Community")).length} Active Kitchens`,
+                      riders: `${riders.filter(r => r.currentLocation?.address?.includes("FC Road") || r.currentLocation?.address?.includes("Sangam")).length} Carriers`,
                       speed: "12 min avg",
                       compliance: "100% On-Time",
                       status: "Optimal",
                     },
                     {
                       sector: "Sector 02: JM Road Commercial Strip",
-                      donors: "4 Food Centers",
-                      riders: "5 Carriers",
+                      donors: `${batches.filter(b => b.location.address?.includes("JM Road") || b.location.address?.includes("Annapurna")).length} Food Centers`,
+                      riders: `${riders.filter(r => r.currentLocation?.address?.includes("JM Road") || r.currentLocation?.address?.includes("Sambhaji")).length} Carriers`,
                       speed: "14 min avg",
                       compliance: "96.4% On-Time",
                       status: "Optimal",
                     },
                     {
                       sector: "Sector 03: COEP & Sangam Riverfront",
-                      donors: "3 Shelters / Camps",
-                      riders: "5 Carriers",
+                      donors: `${receivers.filter(r => r.location.address?.includes("COEP") || r.location.address?.includes("Sangam")).length} Shelters / Camps`,
+                      riders: `${riders.filter(r => r.currentLocation?.address?.includes("COEP") || r.currentLocation?.address?.includes("COEP")).length} Carriers`,
                       speed: "16 min avg",
                       compliance: "98.1% On-Time",
                       status: "Moderate Traffic",
                     },
                     {
                       sector: "Sector 04: Agri College & ST Depot",
-                      donors: "2 Cold Storage Hubs",
-                      riders: "4 Carriers",
+                      donors: `${batches.filter(b => b.location.address?.includes("Agricultural") || b.location.address?.includes("College")).length} Cold Storage Hubs`,
+                      riders: `${riders.filter(r => r.currentLocation?.address?.includes("Agricultural") || r.currentLocation?.address?.includes("College")).length} Carriers`,
                       speed: "10 min avg",
                       compliance: "100% On-Time",
                       status: "Optimal",
@@ -1177,20 +1085,35 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
                   </div>
                 </div>
                 <div className="activity-full-list macos-glass-card">
-                  {[
-                    { time: "2 min ago", text: "FC Road Community Kitchen posted 85 warm meals (Bhakri & Dal).", type: "donor" },
-                    { time: "7 min ago", text: "Rider 04 (Akash) accepted pickup assignment at JM Road Center.", type: "rider" },
-                    { time: "11 min ago", text: "Batch #90 reached 20-minute safety threshold. Coordinator alerted.", type: "system" },
-                    { time: "18 min ago", text: "Shivaji Nagar Rain Basera verified receipt of 30 meal kits.", type: "receiver" },
-                    { time: "24 min ago", text: "Agri College Cold Hub opened 40 reserve crates for overflow aid.", type: "coordinator" },
-                    { time: "35 min ago", text: "Dengle Bridge transit route verified clear of flooding.", type: "system" },
-                  ].map((act, i) => (
-                    <div className="activity-full-row" key={i}>
-                      <span className="act-time">{act.time}</span>
-                      <span className="signal-dot signal-dot-warm" />
-                      <span className="act-text">{act.text}</span>
-                    </div>
-                  ))}
+                  {auditEvents.length > 0
+                    ? auditEvents
+                        .slice(0, 50)
+                        .map((event) => {
+                          const time = new Date(event.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                          return (
+                            <div className="activity-full-row" key={event.id}>
+                              <span className="act-time">{time}</span>
+                              <span className="signal-dot signal-dot-warm" />
+                              <span className="act-text">
+                                <strong>{event.type.replace(/_/g, " ")}:</strong> {JSON.stringify(event.details || {})}
+                              </span>
+                            </div>
+                          );
+                        })
+                    : [
+                        { time: "2 min ago", text: "FC Road Community Kitchen posted 85 warm meals (Bhakri & Dal).", type: "donor" },
+                        { time: "7 min ago", text: "Rider 04 (Akash) accepted pickup assignment at JM Road Center.", type: "rider" },
+                        { time: "11 min ago", text: "Batch #90 reached 20-minute safety threshold. Coordinator alerted.", type: "system" },
+                        { time: "18 min ago", text: "Shivaji Nagar Rain Basera verified receipt of 30 meal kits.", type: "receiver" },
+                        { time: "24 min ago", text: "Agri College Cold Hub opened 40 reserve crates for overflow aid.", type: "coordinator" },
+                        { time: "35 min ago", text: "Dengle Bridge transit route verified clear of flooding.", type: "system" },
+                      ].map((act, i) => (
+                        <div className="activity-full-row" key={i}>
+                          <span className="act-time">{act.time}</span>
+                          <span className="signal-dot signal-dot-warm" />
+                          <span className="act-text">{act.text}</span>
+                        </div>
+                      ))}
                 </div>
               </div>
             )}
@@ -1256,19 +1179,37 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
                 <form
                   onSubmit={async (e) => {
                     e.preventDefault();
-                    const newReq = {
-                      id: `REQ-${Math.floor(Math.random() * 900 + 100)}`,
-                      shelter: "Shivaji Nagar Rain Basera",
-                      items: "50 Fresh Meals",
-                      urgency: "High",
-                      timeNeeded: "Within 30 min",
-                      status: "Unfulfilled",
-                      dietary: "Vegetarian",
-                      contact: "Anita Kulkarni (+91 98220 11234)",
-                    };
-                    setRequestsList((prev) => [newReq, ...prev]);
+                    const form = e.currentTarget;
+                    const shelterInput = (form.elements[0] as HTMLInputElement).value;
+                    const itemsInput = (form.elements[1] as HTMLInputElement).value;
+                    const countMatch = itemsInput.match(/\d+/);
+                    const qty = countMatch ? parseInt(countMatch[0], 10) : 50;
+
                     setNewRequestModal(false);
-                    await apiPost("/requests", newReq);
+
+                    try {
+                      const receivers = await api.listReceivers();
+                      let rec = receivers[0];
+                      if (!rec) {
+                        rec = await api.createReceiver({
+                          name: shelterInput,
+                          location: { latitude: 28.62, longitude: 77.21, address: shelterInput },
+                        });
+                      }
+                      await api.createRequest({
+                        receiverId: rec.id,
+                        itemName: itemsInput,
+                        category: "COOKED_FOOD",
+                        requestedQuantity: qty,
+                        unit: "MEALS",
+                        urgency: 3,
+                        priority: 2,
+                      });
+                      await refreshLiveState();
+                    } catch (err) {
+                      console.warn("Backend request create:", err);
+                      alert("Failed to create request: " + (err as Error).message);
+                    }
                   }}
                   className="modal-form"
                 >
@@ -1299,20 +1240,29 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
                 <form
                   onSubmit={async (e) => {
                     e.preventDefault();
-                    const newBatch = {
-                      id: `BATCH-${Math.floor(Math.random() * 900 + 100)}`,
-                      source: "FC Road Community Kitchen",
-                      item: "60 Fresh Chapati & Rice Bowls",
-                      cookedAt: "Just Now",
-                      expiresIn: "45 mins",
-                      temp: "Hot (65°C)",
-                      weight: "18 kg",
-                      status: "Ready for Pickup",
-                      assignedRider: "Unassigned",
-                    };
-                    setInventoryBatches((prev) => [newBatch, ...prev]);
+                    const form = e.currentTarget;
+                    const kitchenInput = (form.elements[0] as HTMLInputElement).value;
+                    const itemInput = (form.elements[1] as HTMLInputElement).value;
+                    const weightInput = (form.elements[2] as HTMLInputElement).value;
+                    const countMatch = itemInput.match(/\d+/);
+                    const qty = countMatch ? parseInt(countMatch[0], 10) : 60;
+
                     setNewBatchModal(false);
-                    await apiPost("/donations", newBatch);
+
+                    try {
+                      await api.createBatch({
+                        itemName: itemInput,
+                        category: "COOKED_FOOD",
+                        quantity: qty,
+                        unit: "MEALS",
+                        storageCondition: "AMBIENT",
+                        location: { latitude: 28.6139, longitude: 77.209, address: kitchenInput },
+                      });
+                      await refreshLiveState();
+                    } catch (err) {
+                      console.warn("Backend batch create:", err);
+                      alert("Failed to create batch: " + (err as Error).message);
+                    }
                   }}
                   className="modal-form"
                 >

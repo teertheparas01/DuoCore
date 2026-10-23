@@ -1,86 +1,93 @@
-# अन्नपूर्ण (AidFlow) — DuoCore
+# Annapurna Civic Logistics
 
 > **Every donation. The right destination. Before time runs out.**
 
-अन्नपूर्ण is a real-time civic logistics coordination platform that matches perishable food and relief aid using capacity-aware dispatch, safe-consumption window enforcement, inventory tracking, and dynamic rerouting across **Pune's Shivaji Nagar and Mutha River corridor**.
+AidFlow is a real-time micro-logistics and dispatch coordination platform designed to redistribute perishable cooked meals, infant formula, raw ration kits, and essential relief aid. It replaces static dashboards with a live operational mesh that actively reasons across multi-dimensional rider capacity, receiver demand feasibility, shelf-life deadlines, and dynamic delivery exceptions.
 
 ---
 
-## 🏗️ Architecture
+## Key Capabilities
 
-The repository is structured as a full-stack monorepo:
+- **Capacity-Aware Multi-Rider Splitting**: Splits oversized donation batches across multiple volunteer riders while accounting for weight (kg), volume (litres), item count, and fragile handling limits.
+- **Explainable Feasibility & Compatibility**: Enforces storage requirements (Ambient, Refrigerated, Cold Hub) and receiver capabilities (e.g., clean water, infant feeding tools) before allocation.
+- **OTP & Proof of Delivery Lifecycle**: Cryptographic 6-digit one-time passcodes and photo proofs recorded at both donor pickup and shelter delivery.
+- **Rider-to-Rider Cargo Transfer**: Seamlessly reassigns in-transit cargo between riders during vehicle breakdowns or route blocks.
+- **Dynamic Destination Recovery**: Automatically reroutes active cargo to nearby secondary shelters if the primary destination unexpectedly closes or reaches full capacity.
+- **Simulation Time Machine**: Accelerated simulation clock to test judge scenarios, unresponsive rider detection (threshold alerts), and perishable cargo shelf-life expiry.
+- **Real-Time Event Stream**: Server-Sent Events (SSE) broadcasting live dispatch, routing, and operational incident telemetry.
+- **macOS Liquid-Glass Interface**: High-fidelity frontend with live map telemetry across Pune's Shivaji Nagar corridor (JM Road, FC Road, Sangam Ghat).
+
+---
+
+## Monorepo Architecture
 
 ```
 DuoCore/
 ├── apps/
-│   ├── api/             # Backend REST API Service (Node.js + Express + TypeScript)
-│   │   ├── src/         # API routes, persistent JSON store, and controllers
-│   │   └── data/        # Persistent data store (db.json)
-│   └── web/             # Frontend Client (React 19 + TypeScript + Vite)
-│       └── src/         # macOS liquid-glass UI & Pune Shivaji Nagar SVG map
-├── Vibe A Thon/         # Product brief & engineering operating guidelines
-├── package.json         # Root monorepo scripts
-└── README.md
+│   ├── api/             # Node.js / TypeScript operational service & REST/SSE endpoints
+│   └── web/             # Vite + React 19 macOS liquid-glass dashboard with Shivaji Nagar map
+├── packages/
+│   └── domain/          # Pure domain logic: allocation engine, routing, shelf-life, state models
+├── docker-compose.yml   # Multi-container orchestration (PostgreSQL + AidFlow API)
+├── Dockerfile           # Production container build
+├── package.json         # Root pnpm monorepo workspace
+└── pnpm-workspace.yaml  # Workspace definitions
 ```
 
 ---
 
-## 🚀 Quick Start
+## Quickstart
 
-### 1. Start the Backend API (Port 4000)
-```powershell
-cd apps/api
-npm install
-npm run dev
+### Prerequisites
+- Node.js >= 20.x
+- pnpm >= 9.x / 12.x
+
+### 1. Install Dependencies
+```bash
+pnpm install
 ```
-* API Server: `http://127.0.0.1:4000`
-* Health Check: `http://127.0.0.1:4000/api/health`
 
-### 2. Start the Frontend Client (Port 5173)
-```powershell
-cd apps/web
-npm install
-npm run dev
+### 2. Run Test Suites
+```bash
+# Domain tests: Allocation engine, compatibility, route feasibility, shelf life
+pnpm --filter @aidflow/domain test
+
+# API tests: Full operational lifecycle, OTPs, cargo transfers, recovery
+pnpm --filter @aidflow/api test
 ```
-* Web Application: `http://127.0.0.1:5173`
+
+### 3. Start Backend API Server
+```bash
+pnpm --filter @aidflow/api dev
+# Running on http://localhost:3000
+# Real-time SSE on http://localhost:3000/events
+```
+
+### 4. Start Web Frontend
+```bash
+pnpm --filter annapurn-web dev
+# Accessible at http://127.0.0.1:5173
+```
 
 ---
 
-## 📡 Backend API Endpoints
+## Running with Docker Compose
 
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `GET` | `/api/health` | Service health status & Pune sector metadata |
-| `GET` | `/api/donations` | List all perishable food donation batches |
-| `POST` | `/api/donations` | Publish a new donation batch with cooking time & thermal state |
-| `POST` | `/api/donations/:id/split` | Split a donation into two traceable sub-batches |
-| `GET` | `/api/requests` | List shelter and relief camp demand requests |
-| `POST` | `/api/requests` | Create a verified demand request |
-| `PATCH` | `/api/requests/:id` | Update request status (`Unfulfilled`, `In Transit`, `Fulfilled`) |
-| `GET` | `/api/riders` | List active volunteer carriers with live capacity meters |
-| `PATCH` | `/api/riders/:id` | Update rider location or carrier capacity |
-| `GET` | `/api/dispatch` | List algorithmic match pairings and active runs |
-| `POST` | `/api/dispatch/auto-match` | Execute 1-click auto-matching across all active batches |
-| `PATCH` | `/api/dispatch/:id` | Approve and dispatch assignment |
-| `GET` | `/api/interventions` | Critical bottlenecks, expiry deadlines, and road delays |
-| `POST` | `/api/interventions/:id/resolve` | Execute rerouting to cold hub or split assignment |
-| `GET` | `/api/network/telemetry` | Shivaji Nagar sector telemetry and bridge flow metrics |
-| `GET` | `/api/network/activity` | Tamper-evident activity audit log |
+To run PostgreSQL alongside the backend API:
+
+```bash
+docker compose up --build
+```
 
 ---
 
-## 👥 Supported Roles & Interfaces
+## Judge Demonstration Scenario (180-Meal Allocation)
 
-1. **Donor (Supply Side):** Batch publishing, thermal state tracking, and sub-batch splitting.
-2. **Volunteer Delivery Partner:** Live routing along JM/FC Roads, cargo capacity limiters, and proof-of-delivery.
-3. **Receiver (Demand Side):** Rain Basera intake logging, dietary requirement checks, and storage capability matrix.
-4. **Coordinator (Operations):** Network command center, dispatch matrix, and urgent bottleneck interventions.
-
----
-
-## 🎨 Visual Design System
-
-* **Theme:** Apple macOS Liquid-Glass (frosted translucency, specular highlights, traffic-light window chrome)
-* **Palette:** Butter Yellow (`#F5C542`), Deep Midnight Navy (`#081728`), Radiant Sky Blue (`#38BDF8`), and Warm Cream (`#FFF8E7`)
-* **Typography:** *Plus Jakarta Sans* (Weights 700–900) & *Noto Sans Devanagari*
-* **Mapping:** Vector SVG engine modeling Pune's Shivaji Nagar, Mutha River, Sangam Bridge, Dengle Bridge, and Metro corridor.
+To instantly trigger the hackathon benchmark scenario:
+1. Click **"Seed Grid"** in the top navigation bar (or execute `POST /simulation/seed`).
+2. This creates:
+   - **180 cooked meals** at FC Road Community Kitchen (75 min safe shelf life).
+   - **3 Receiving Shelters**: Rain Basera (50 meals), Sangam Ghat (70 meals), COEP Shelter (60 meals).
+   - **3 Volunteer Riders** with individual capacity limits (40, 60, and 40 meals).
+3. The deterministic allocation engine automatically allocates **140 meals** across riders and preserves the **40-meal unallocated remainder** with explainable feasibility logs.
+4. Fast-forward the clock by clicking **"+15m"** to observe live updates, driver arrival estimates, and exception handling.
