@@ -1,8 +1,8 @@
-# AidFlow / Annapurna (Civic Logistics)
+# AidFlow (Annapurna Civic Logistics)
 
 > **Every donation. The right destination. Before time runs out.**
 
-AidFlow (Annapurna) is a real-time micro-logistics and dispatch coordination platform designed to redistribute perishable cooked meals, infant formula, raw ration kits, and essential relief aid. It replaces static dashboards with a live operational mesh that actively reasons across multi-dimensional rider capacity, receiver demand feasibility, shelf-life deadlines, and dynamic delivery exceptions.
+AidFlow is a real-time micro-logistics and dispatch coordination platform designed to redistribute perishable cooked meals, infant formula, raw ration kits, and essential relief aid. It replaces static dashboards with a live operational mesh that actively reasons across multi-dimensional rider capacity, receiver demand feasibility, shelf-life deadlines, and dynamic delivery exceptions.
 
 ---
 
