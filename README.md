@@ -1,4 +1,4 @@
-# AidFlow (Annapurna Civic Logistics)
+# Annapurna Civic Logistics
 
 > **Every donation. The right destination. Before time runs out.**
 
