@@ -1,4 +1,4 @@
-import {
+﻿import {
   Compass,
   Layers,
   LocateFixed,

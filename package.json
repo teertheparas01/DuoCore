@@ -1,0 +1,19 @@
+{
+  "name": "aidflow",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@12.15.0",
+  "scripts": {
+    "build": "pnpm --filter @aidflow/domain build && pnpm --filter @aidflow/api build && pnpm --filter annapurn-web build",
+    "dev": "pnpm --filter @aidflow/api dev",
+    "dev:web": "pnpm --filter annapurn-web dev",
+    "start": "pnpm --filter @aidflow/api start",
+    "test": "pnpm --filter @aidflow/domain test && pnpm --filter @aidflow/api test",
+    "typecheck": "pnpm --filter @aidflow/domain typecheck && pnpm --filter @aidflow/api typecheck"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

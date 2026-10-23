@@ -1,4 +1,4 @@
-import { ArrowRight, CircleHelp, LockKeyhole, MapPin, Sparkles, UsersRound } from "lucide-react";
+﻿import { ArrowRight, CircleHelp, LockKeyhole, MapPin, Sparkles, UsersRound } from "lucide-react";
 import { roles } from "../data";
 import type { Role } from "../types";
 import { GlassCard } from "./GlassCard";

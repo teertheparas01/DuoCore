@@ -36,12 +36,13 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { mapMarkers, roleById } from "../data";
 import type { MapMarker, Role } from "../types";
 import { GlassCard } from "./GlassCard";
 import { Sidebar } from "./Sidebar";
 import { SimulatedMap } from "./SimulatedMap";
+import { api } from "../api";
 
 interface DashboardViewProps {
   role: Role;
@@ -239,16 +240,84 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
   const [newRequestModal, setNewRequestModal] = useState(false);
   const [newBatchModal, setNewBatchModal] = useState(false);
 
+  const [backendConnected, setBackendConnected] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<string>("Connecting to AidFlow API...");
+
+  const refreshLiveState = useCallback(async () => {
+    try {
+      const state = await api.getState();
+      setBackendConnected(true);
+      setSyncStatus(`Live API · Port 3000 · ${state.batches.length} Batches`);
+
+      if (state.batches.length > 0) {
+        setInventoryBatches((prev) => {
+          const apiBatches = state.batches.map((b) => ({
+            id: b.id.toUpperCase(),
+            source: b.location.address || "Shivaji Nagar Center",
+            item: `${b.quantity} ${b.unit} · ${b.itemName}`,
+            cookedAt: new Date(b.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            expiresIn: `${Math.max(1, Math.round((new Date(b.effectiveExpiry).getTime() - Date.now()) / 60000))} mins`,
+            temp: b.storageCondition === "AMBIENT" ? "Ambient (24°C)" : "Controlled",
+            weight: `${(b.quantity * 0.4).toFixed(1)} kg`,
+            status: b.status.replace(/_/g, " "),
+            assignedRider: b.status === "AVAILABLE" ? "Unassigned" : "Dispatched",
+          }));
+          return [...apiBatches, ...prev.filter((p) => !apiBatches.some((ab) => ab.id === p.id))];
+        });
+      }
+
+      if (state.receiverRequests.length > 0) {
+        setRequestsList((prev) => {
+          const apiReqs = state.receiverRequests.map((r) => {
+            const receiver = state.receivers.find((rec) => rec.id === r.receiverId);
+            return {
+              id: r.id.toUpperCase(),
+              shelter: receiver?.name || `Shelter (${r.receiverId})`,
+              items: `${r.requestedQuantity} ${r.unit} (${r.category.replace(/_/g, " ")})`,
+              urgency: r.urgency >= 3 ? "High" : r.urgency === 2 ? "Medium" : "Normal",
+              timeNeeded: "Active demand",
+              status: r.status === "OPEN" ? "Unfulfilled" : r.status === "FULFILLED" ? "Delivered" : "In Transit",
+              dietary: "Verified Category",
+              contact: receiver?.location?.address || "Shivaji Nagar",
+            };
+          });
+          return [...apiReqs, ...prev.filter((p) => !apiReqs.some((ar) => ar.id === p.id))];
+        });
+      }
+    } catch {
+      setBackendConnected(false);
+      setSyncStatus("Standalone Mode (Click Seed Grid to connect)");
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshLiveState();
+    const unsub = api.subscribeEvents(() => {
+      refreshLiveState();
+    });
+    return () => unsub();
+  }, [refreshLiveState]);
+
   const handleMarkerSelect = useCallback((marker: MapMarker) => {
     setSelectedMarker((prev) => (prev?.id === marker.id ? null : marker));
   }, []);
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
-  const fulfillRequest = (id: string) => {
+  const fulfillRequest = async (id: string) => {
     setRequestsList((prev) =>
       prev.map((r) => (r.id === id ? { ...r, status: "In Transit" } : r))
     );
+    try {
+      const batches = await api.listBatches();
+      const openBatch = batches.find((b) => b.balance.available > 0);
+      if (openBatch) {
+        await api.allocateBatch(openBatch.id);
+        await refreshLiveState();
+      }
+    } catch (e) {
+      console.warn("Fulfill API call:", e);
+    }
   };
 
   const approveDispatch = (id: string) => {
@@ -311,10 +380,44 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
               </div>
 
               <div className="topbar-actions">
-                <div className="topbar-pulse-indicator">
-                  <span className="signal-dot signal-dot-live" />
-                  <small>Mutha River Corridor Live</small>
+                <div className="topbar-pulse-indicator" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span className={`signal-dot ${backendConnected ? "signal-dot-live" : ""}`} style={{ backgroundColor: backendConnected ? "#10b981" : "#94a3b8" }} />
+                  <small style={{ fontWeight: 500 }}>{syncStatus}</small>
                 </div>
+
+                <button
+                  className="macos-glass-button"
+                  style={{ fontSize: "0.78rem", padding: "5px 11px", display: "inline-flex", alignItems: "center", gap: 5, borderRadius: 8 }}
+                  onClick={async () => {
+                    try {
+                      await api.seedScenario();
+                      await refreshLiveState();
+                    } catch (err: any) {
+                      alert("Seed failed: " + err.message);
+                    }
+                  }}
+                  title="Seed 180 Meals + 3 Shelters + 3 Riders in backend"
+                >
+                  <Sparkles size={13} color="#f59e0b" />
+                  <span>Seed Grid</span>
+                </button>
+
+                <button
+                  className="macos-glass-button"
+                  style={{ fontSize: "0.78rem", padding: "5px 11px", display: "inline-flex", alignItems: "center", gap: 5, borderRadius: 8 }}
+                  onClick={async () => {
+                    try {
+                      await api.advanceTime(15);
+                      await refreshLiveState();
+                    } catch (err: any) {
+                      alert("Advance failed: " + err.message);
+                    }
+                  }}
+                  title="Advance simulation time by 15 minutes"
+                >
+                  <Clock size={13} color="#38bdf8" />
+                  <span>+15m</span>
+                </button>
 
                 {/* Profile Pill (Top-Right) */}
                 <button
@@ -1182,13 +1285,19 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
                   </button>
                 </div>
                 <form
-                  onSubmit={(e) => {
+                  onSubmit={async (e) => {
                     e.preventDefault();
+                    const form = e.currentTarget;
+                    const shelterInput = (form.elements[0] as HTMLInputElement).value;
+                    const itemsInput = (form.elements[1] as HTMLInputElement).value;
+                    const countMatch = itemsInput.match(/\d+/);
+                    const qty = countMatch ? parseInt(countMatch[0], 10) : 50;
+
                     setRequestsList((prev) => [
                       {
                         id: `REQ-${Math.floor(Math.random() * 900 + 100)}`,
-                        shelter: "Shivaji Nagar Rain Basera",
-                        items: "50 Fresh Meals",
+                        shelter: shelterInput,
+                        items: itemsInput,
                         urgency: "High",
                         timeNeeded: "Within 30 min",
                         status: "Unfulfilled",
@@ -1198,6 +1307,29 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
                       ...prev,
                     ]);
                     setNewRequestModal(false);
+
+                    try {
+                      const receivers = await api.listReceivers();
+                      let rec = receivers[0];
+                      if (!rec) {
+                        rec = await api.createReceiver({
+                          name: shelterInput,
+                          location: { latitude: 28.62, longitude: 77.21, address: shelterInput },
+                        });
+                      }
+                      await api.createRequest({
+                        receiverId: rec.id,
+                        itemName: itemsInput,
+                        category: "COOKED_FOOD",
+                        requestedQuantity: qty,
+                        unit: "MEALS",
+                        urgency: 3,
+                        priority: 2,
+                      });
+                      await refreshLiveState();
+                    } catch (err) {
+                      console.warn("Backend request create:", err);
+                    }
                   }}
                   className="modal-form"
                 >
@@ -1226,23 +1358,44 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
                   </button>
                 </div>
                 <form
-                  onSubmit={(e) => {
+                  onSubmit={async (e) => {
                     e.preventDefault();
+                    const form = e.currentTarget;
+                    const kitchenInput = (form.elements[0] as HTMLInputElement).value;
+                    const itemInput = (form.elements[1] as HTMLInputElement).value;
+                    const weightInput = (form.elements[2] as HTMLInputElement).value;
+                    const countMatch = itemInput.match(/\d+/);
+                    const qty = countMatch ? parseInt(countMatch[0], 10) : 60;
+
                     setInventoryBatches((prev) => [
                       {
                         id: `BATCH-${Math.floor(Math.random() * 900 + 100)}`,
-                        source: "FC Road Community Kitchen",
-                        item: "60 Fresh Chapati & Rice Bowls",
+                        source: kitchenInput,
+                        item: itemInput,
                         cookedAt: "Just Now",
                         expiresIn: "45 mins",
                         temp: "Hot (65°C)",
-                        weight: "18 kg",
+                        weight: weightInput,
                         status: "Ready for Pickup",
                         assignedRider: "Unassigned",
                       },
                       ...prev,
                     ]);
                     setNewBatchModal(false);
+
+                    try {
+                      await api.createBatch({
+                        itemName: itemInput,
+                        category: "COOKED_FOOD",
+                        quantity: qty,
+                        unit: "MEALS",
+                        storageCondition: "AMBIENT",
+                        location: { latitude: 28.6139, longitude: 77.209, address: kitchenInput },
+                      });
+                      await refreshLiveState();
+                    } catch (err) {
+                      console.warn("Backend batch create:", err);
+                    }
                   }}
                   className="modal-form"
                 >
