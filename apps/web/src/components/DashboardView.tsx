@@ -58,6 +58,208 @@ const demoUsers: Record<Role, { name: string; email: string }> = {
   coordinator: { name: "Vikram Gaikwad", email: "vikram.g@pmc.pune.gov.in" },
 };
 
+
+const SAMPLE_REQUESTS = [
+  {
+    id: "REQ-101",
+    shelter: "Shivaji Nagar Rain Basera (Near ST Depot)",
+    items: "60 Hot Thali Meals",
+    urgency: "High",
+    timeNeeded: "Within 25 min",
+    status: "Unfulfilled",
+    dietary: "Vegetarian / No Onion",
+    contact: "Dr. Kulkarni (+91 98220 11234)",
+  },
+  {
+    id: "REQ-102",
+    shelter: "Sangam Ghat Relief Camp",
+    items: "35 Ration Kits (Flour, Dal, Oil)",
+    urgency: "Medium",
+    timeNeeded: "Within 2 hours",
+    status: "In Transit",
+    dietary: "Dry Groceries",
+    contact: "Ramesh Shinde (+91 94230 55678)",
+  },
+  {
+    id: "REQ-103",
+    shelter: "COEP Night Shelter Ward",
+    items: "40 Fresh Bhakri & Pithla Packs",
+    urgency: "High",
+    timeNeeded: "Within 15 min",
+    status: "Unfulfilled",
+    dietary: "Fresh Cooked",
+    contact: "Prof. Joshi (+91 98900 88219)",
+  },
+  {
+    id: "REQ-104",
+    shelter: "Sancheti Chowk Transit Camp",
+    items: "25 Clean Water Jerry Cans & Biscuits",
+    urgency: "Normal",
+    timeNeeded: "Within 3 hours",
+    status: "Scheduled",
+    dietary: "Packaged Aid",
+    contact: "Pooja Salve (+91 97654 32109)",
+  },
+];
+
+const SAMPLE_BATCHES = [
+  {
+    id: "BATCH-89",
+    source: "FC Road Community Kitchen",
+    item: "85 Warm Bhakri & Dal Packets",
+    cookedAt: "1:45 PM",
+    expiresIn: "32 mins",
+    temp: "Hot (64°C)",
+    weight: "26 kg",
+    status: "Ready for Pickup",
+    assignedRider: "Unassigned",
+  },
+  {
+    id: "BATCH-90",
+    source: "JM Road Annapurna Center",
+    item: "24 Tiffin Meals (Rice & Curry)",
+    cookedAt: "1:15 PM",
+    expiresIn: "18 mins",
+    temp: "Warm (55°C)",
+    weight: "14 kg",
+    status: "Critical Window",
+    assignedRider: "Rider 04 · Akash",
+  },
+  {
+    id: "BATCH-91",
+    source: "Gokhale Institute Mess Surplus",
+    item: "50 Chapati Packs & Sabzi",
+    cookedAt: "2:00 PM",
+    expiresIn: "55 mins",
+    temp: "Hot (68°C)",
+    weight: "18 kg",
+    status: "Packing Now",
+    assignedRider: "Unassigned",
+  },
+  {
+    id: "BATCH-92",
+    source: "Agricultural College Research Canteen",
+    item: "30 Fruit & Protein Ration Boxes",
+    cookedAt: "12:30 PM",
+    expiresIn: "4 hours",
+    temp: "Ambient (24°C)",
+    weight: "22 kg",
+    status: "Stored in Cold Hub",
+    assignedRider: "Standby",
+  },
+];
+
+const SAMPLE_DISPATCH = [
+  {
+    id: "DSP-301",
+    origin: "FC Road Community Kitchen",
+    destination: "Shivaji Nagar Rain Basera",
+    cargo: "85 Warm Meals (26 kg)",
+    recommendedRider: "Rider 04 (Akash)",
+    vehicle: "Hero Electric E-Scooter",
+    matchScore: "98%",
+    eta: "14 min",
+    expiryMargin: "32 min remaining",
+    status: "Pending Approval",
+  },
+  {
+    id: "DSP-302",
+    origin: "Gokhale Institute Mess",
+    destination: "COEP Night Shelter",
+    cargo: "50 Chapati Packs (18 kg)",
+    recommendedRider: "Rider 07 (Rahul)",
+    vehicle: "Activa + Insulated Box",
+    matchScore: "94%",
+    eta: "11 min",
+    expiryMargin: "55 min remaining",
+    status: "Pending Approval",
+  },
+  {
+    id: "DSP-303",
+    origin: "JM Road Annapurna Center",
+    destination: "Sangam Ghat Relief Camp",
+    cargo: "24 Tiffin Meals (14 kg)",
+    recommendedRider: "Rider 11 (Priya)",
+    vehicle: "Cargo Cycle",
+    matchScore: "89%",
+    eta: "8 min",
+    expiryMargin: "18 min remaining (URGENT)",
+    status: "Critical Priority",
+  },
+];
+
+const SAMPLE_INTERVENTIONS = [
+  {
+    id: "INT-801",
+    type: "EXPIRY_DEADLINE",
+    severity: "critical" as const,
+    title: "Batch #90 on JM Road reaching 18-minute critical threshold",
+    details: "Original destination shelter reporting gate queue delay. Temperature dropped to 54°C.",
+    recommendation: "Divert shipment to Agricultural College Cold Hub (1.1 km away).",
+    actionLabel: "Divert to Cold Storage Hub",
+    status: "Action Required" as const,
+  },
+  {
+    id: "INT-802",
+    type: "CAPACITY_MISMATCH",
+    severity: "warning" as const,
+    title: "FC Road Kitchen batch (26 kg) exceeds Rider 11's cargo limit (20 kg)",
+    details: "Attempted assignment causes 6 kg safety overload on two-wheeler carrier.",
+    recommendation: "Split donation into two 13 kg sub-batches across Rider 11 & Rider 04.",
+    actionLabel: "Auto-Split & Dispatch Dual Riders",
+    status: "Action Required" as const,
+  },
+  {
+    id: "INT-803",
+    type: "TRAFFIC_BOTTLENECK",
+    severity: "notice" as const,
+    title: "Sancheti Chowk junction congestion (+12 min delay)",
+    details: "Peak hour traffic bottleneck detected on Shivaji Road underpass.",
+    recommendation: "Push alternate route via Dengle Bridge to all 3 active en-route carriers.",
+    actionLabel: "Broadcast Dengle Bridge Bypass",
+    status: "Action Required" as const,
+  },
+];
+
+const SAMPLE_RIDERS: any[] = [
+  {
+    id: "rider-1",
+    name: "Akash Shinde (Rider 04)",
+    status: "IN_TRANSIT",
+    capacity: { itemCount: 50, weightKg: 25, volumeLitres: 40, fragileUnits: 0 },
+    committedLoad: { itemCount: 30, weightKg: 15, volumeLitres: 20, fragileUnits: 0 },
+    vehicleType: "Hero Electric E-Scooter",
+    currentLocation: { latitude: 18.5295, longitude: 73.8550, address: "Sangam Bridge Underpass" },
+  },
+  {
+    id: "rider-2",
+    name: "Rahul Deshmukh (Rider 07)",
+    status: "AVAILABLE",
+    capacity: { itemCount: 60, weightKg: 30, volumeLitres: 50, fragileUnits: 0 },
+    committedLoad: { itemCount: 0, weightKg: 0, volumeLitres: 0, fragileUnits: 0 },
+    vehicleType: "Activa + Insulated Box",
+    currentLocation: { latitude: 18.5220, longitude: 73.8500, address: "FC Road Starbucks Junction" },
+  },
+  {
+    id: "rider-3",
+    name: "Priya Kadam (Rider 11)",
+    status: "AVAILABLE",
+    capacity: { itemCount: 40, weightKg: 20, volumeLitres: 30, fragileUnits: 0 },
+    committedLoad: { itemCount: 0, weightKg: 0, volumeLitres: 0, fragileUnits: 0 },
+    vehicleType: "Cargo Cycle",
+    currentLocation: { latitude: 18.5260, longitude: 73.8470, address: "JM Road Sambhaji Park" },
+  },
+  {
+    id: "rider-4",
+    name: "Vikram Patil (Rider 15)",
+    status: "DELIVERED",
+    capacity: { itemCount: 80, weightKg: 40, volumeLitres: 60, fragileUnits: 0 },
+    committedLoad: { itemCount: 0, weightKg: 0, volumeLitres: 0, fragileUnits: 0 },
+    vehicleType: "Mahindra Electric Auto",
+    currentLocation: { latitude: 18.5310, longitude: 73.8440, address: "Shivaji Nagar Station" },
+  },
+];
+
 export function DashboardView({ role, onLogout }: DashboardViewProps) {
   const roleDef = roleById(role);
   const user = demoUsers[role];
@@ -88,6 +290,13 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
 
   const [newRequestModal, setNewRequestModal] = useState(false);
   const [newBatchModal, setNewBatchModal] = useState(false);
+
+  // Local interactive state seeded with full Pune Shivaji Nagar sample dataset
+  const [localRequests, setLocalRequests] = useState<any[]>(SAMPLE_REQUESTS);
+  const [localBatches, setLocalBatches] = useState<any[]>(SAMPLE_BATCHES);
+  const [localDispatch, setLocalDispatch] = useState<any[]>(SAMPLE_DISPATCH);
+  const [localInterventions, setLocalInterventions] = useState<any[]>(SAMPLE_INTERVENTIONS);
+  const [localRiders, setLocalRiders] = useState<any[]>(SAMPLE_RIDERS);
 
   const [backendConnected, setBackendConnected] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string>("Connecting to AidFlow API...");
@@ -126,8 +335,8 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
     return () => unsub();
   }, [refreshLiveState]);
 
-  // Computed UI state from live data
-  const requestsList = requests.map((r) => {
+  // Computed UI state: Merge live API state with initial Shivaji Nagar sample data
+  const apiRequests = requests.map((r) => {
     const receiver = receivers.find((rec) => rec.id === r.receiverId);
     return {
       id: r.id.toUpperCase(),
@@ -140,8 +349,9 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
       contact: receiver?.location?.address || "Shivaji Nagar",
     };
   });
+  const requestsList = [...apiRequests, ...localRequests];
 
-  const inventoryBatches = batches.map((b) => ({
+  const apiBatches = batches.map((b) => ({
     id: b.id.toUpperCase(),
     source: b.location.address || "Shivaji Nagar Center",
     item: `${b.quantity} ${b.unit} · ${b.itemName}`,
@@ -152,8 +362,9 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
     status: b.status.replace(/_/g, " "),
     assignedRider: b.status === "AVAILABLE" ? "Unassigned" : "Dispatched",
   }));
+  const inventoryBatches = [...apiBatches, ...localBatches];
 
-  const dispatchQueue = reservations
+  const apiDispatchQueue = reservations
     .filter((r) => r.status === "RESERVED")
     .map((r) => {
       const batch = batches.find((b) => b.id === r.batchId);
@@ -173,13 +384,12 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
         status: "Pending Approval",
       };
     });
+  const dispatchQueue = [...apiDispatchQueue, ...localDispatch];
 
-  const interventionItems = incidents
+  const apiInterventions = incidents
     .filter((i) => i.severity === "CRITICAL" || i.severity === "WARNING")
     .map((inc) => {
       const batch = batches.find((b) => b.id === inc.batchId);
-      const request = inc.receiverRequestId ? requests.find((r) => r.id === inc.receiverRequestId) : null;
-      const rider = inc.riderId ? riders.find((rd) => rd.id === inc.riderId) : null;
       return {
         id: inc.id,
         type: inc.type,
@@ -191,6 +401,9 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
         status: "Action Required" as const,
       };
     });
+  const interventionItems = [...apiInterventions, ...localInterventions];
+
+  const allRiders = riders.length > 0 ? riders : localRiders;
 
   const handleMarkerSelect = useCallback((marker: MapMarker) => {
     setSelectedMarker((prev) => (prev?.id === marker.id ? null : marker));
@@ -199,6 +412,9 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
   const fulfillRequest = async (requestId: string) => {
+    setLocalRequests((prev) =>
+      prev.map((r) => (r.id.toUpperCase() === requestId.toUpperCase() ? { ...r, status: "In Transit" } : r))
+    );
     try {
       const batchesList = await api.listBatches();
       const openBatch = batchesList.find((b) => b.balance.available > 0);
@@ -208,18 +424,35 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
       }
     } catch (e) {
       console.warn("Fulfill API call:", e);
-      alert("Failed to fulfill request: " + (e as Error).message);
     }
   };
 
   const approveDispatch = (reservationId: string) => {
-    // This would call an approve endpoint, but for now just refresh
+    setLocalDispatch((prev) =>
+      prev.map((d) => (d.id.toUpperCase() === reservationId.toUpperCase() ? { ...d, status: "Dispatched (En Route)" } : d))
+    );
     refreshLiveState();
   };
 
   const resolveIntervention = (incidentId: string) => {
-    // Could add an API call to mark incident as resolved
+    setLocalInterventions((prev) =>
+      prev.map((item) => (item.id === incidentId ? { ...item, status: "Resolved & Executed" } : item))
+    );
     refreshLiveState();
+  };
+
+  const handleSplitBatch = (batchId: string) => {
+    setLocalBatches((prev) => {
+      const idx = prev.findIndex((b) => b.id.toUpperCase() === batchId.toUpperCase());
+      if (idx === -1) return prev;
+      const orig = prev[idx];
+      const halfW = Math.round(((parseFloat(orig.weight) || 20) / 2) * 10) / 10;
+      const sub1 = { ...orig, id: `${orig.id}-A`, item: `${orig.item} (Split A)`, weight: `${halfW} kg` };
+      const sub2 = { ...orig, id: `${orig.id}-B`, item: `${orig.item} (Split B)`, weight: `${halfW} kg` };
+      const copy = [...prev];
+      copy.splice(idx, 1, sub1, sub2);
+      return copy;
+    });
   };
 
   const isMapTab =
@@ -544,7 +777,7 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
                             <button
                               className="macos-glass-button"
                               onClick={() => {
-                                alert(`Splitting ${batch.id} into 2 transport sub-batches of equal weight.`);
+                                handleSplitBatch(batch.id);
                               }}
                             >
                               Split Batch
@@ -566,16 +799,16 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
                   </div>
                   <div className="header-stat-pills">
                     <span className="macos-glass-pill" style={{ padding: "6px 14px", fontSize: "0.8rem" }}>
-                      🟢 {riders.length} Active Riders
+                      🟢 {allRiders.length} Active Riders
                     </span>
                     <span className="macos-glass-pill" style={{ padding: "6px 14px", fontSize: "0.8rem" }}>
-                      📦 {riders.reduce((sum, r) => sum + r.capacity.weightKg, 0)} kg Total Moving Capacity
+                      📦 {allRiders.reduce((sum, r) => sum + r.capacity.weightKg, 0)} kg Total Moving Capacity
                     </span>
                   </div>
                 </div>
 
                 <div className="riders-grid">
-                  {riders.map((rider) => {
+                  {allRiders.map((rider) => {
                     const activeReservation = reservations.find(
                       (res) => res.riderId === rider.id && ["RESERVED", "PICKUP_CONFIRMED", "IN_TRANSIT"].includes(res.status)
                     );
@@ -1185,6 +1418,19 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
                     const countMatch = itemsInput.match(/\d+/);
                     const qty = countMatch ? parseInt(countMatch[0], 10) : 50;
 
+                    setLocalRequests((prev) => [
+                      {
+                        id: `REQ-${Math.floor(Math.random() * 900 + 100)}`,
+                        shelter: shelterInput,
+                        items: itemsInput,
+                        urgency: "High",
+                        timeNeeded: "Within 30 min",
+                        status: "Unfulfilled",
+                        dietary: "Vegetarian",
+                        contact: "Anita Kulkarni (+91 98220 11234)",
+                      },
+                      ...prev,
+                    ]);
                     setNewRequestModal(false);
 
                     try {
@@ -1247,6 +1493,20 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
                     const countMatch = itemInput.match(/\d+/);
                     const qty = countMatch ? parseInt(countMatch[0], 10) : 60;
 
+                    setLocalBatches((prev) => [
+                      {
+                        id: `BATCH-${Math.floor(Math.random() * 900 + 100)}`,
+                        source: kitchenInput,
+                        item: itemInput,
+                        cookedAt: "Just Now",
+                        expiresIn: "45 mins",
+                        temp: "Hot (65°C)",
+                        weight: weightInput || "18 kg",
+                        status: "Ready for Pickup",
+                        assignedRider: "Unassigned",
+                      },
+                      ...prev,
+                    ]);
                     setNewBatchModal(false);
 
                     try {

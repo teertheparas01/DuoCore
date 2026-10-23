@@ -418,6 +418,19 @@ async function bootstrap(): Promise<void> {
   const rules: ShelfLifeRule[] = DEFAULT_SHELF_LIFE_RULES;
   const app = new AidflowApplication(state, store, rules);
 
+  // Auto-seed initial Pune Shivaji Nagar grid scenario if empty
+  if (state.batches.length === 0) {
+    app.seedScenario('user-coordinator-1');
+    const batches = app.listBatches();
+    if (batches.length > 0) {
+      try {
+        app.allocateBatch(batches[0].id, {}, 'user-coordinator-1');
+      } catch (err) {
+        console.warn('Initial auto-allocate:', err);
+      }
+    }
+  }
+
   // Broadcast all domain events to SSE clients
   app.subscribe(broadcastSSE);
 
