@@ -36,7 +36,8 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { apiGet, apiPatch, apiPost, checkBackendHealth } from "../api";
 import { mapMarkers, roleById } from "../data";
 import type { MapMarker, Role } from "../types";
 import { GlassCard } from "./GlassCard";
@@ -238,6 +239,43 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
 
   const [newRequestModal, setNewRequestModal] = useState(false);
   const [newBatchModal, setNewBatchModal] = useState(false);
+  const [isBackendConnected, setIsBackendConnected] = useState(false);
+
+  // Poll / Sync from Backend API
+  useEffect(() => {
+    let mounted = true;
+    async function syncData() {
+      const isOnline = await checkBackendHealth();
+      if (!mounted) return;
+      setIsBackendConnected(isOnline);
+
+      if (isOnline) {
+        try {
+          const [donations, requests, dispatches, alerts] = await Promise.all([
+            apiGet("/donations", null),
+            apiGet("/requests", null),
+            apiGet("/dispatch", null),
+            apiGet("/interventions", null),
+          ]);
+          if (mounted) {
+            if (donations && Array.isArray(donations)) setInventoryBatches(donations);
+            if (requests && Array.isArray(requests)) setRequestsList(requests);
+            if (dispatches && Array.isArray(dispatches)) setDispatchQueue(dispatches);
+            if (alerts && Array.isArray(alerts)) setInterventions(alerts);
+          }
+        } catch {
+          // keep local in-memory fallback
+        }
+      }
+    }
+
+    syncData();
+    const interval = setInterval(syncData, 6000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   const handleMarkerSelect = useCallback((marker: MapMarker) => {
     setSelectedMarker((prev) => (prev?.id === marker.id ? null : marker));
@@ -245,22 +283,53 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
-  const fulfillRequest = (id: string) => {
+  const fulfillRequest = async (id: string) => {
     setRequestsList((prev) =>
       prev.map((r) => (r.id === id ? { ...r, status: "In Transit" } : r))
     );
+    await apiPatch(`/requests/${id}`, { status: "In Transit" });
   };
 
-  const approveDispatch = (id: string) => {
+  const approveDispatch = async (id: string) => {
     setDispatchQueue((prev) =>
       prev.map((d) => (d.id === id ? { ...d, status: "Dispatched (En Route)" } : d))
     );
+    await apiPatch(`/dispatch/${id}`, { status: "Dispatched (En Route)" });
   };
 
-  const resolveIntervention = (id: string) => {
+  const resolveIntervention = async (id: string) => {
     setInterventions((prev) =>
       prev.map((item) => (item.id === id ? { ...item, status: "Resolved & Executed" } : item))
     );
+    await apiPost(`/interventions/${id}/resolve`, {});
+  };
+
+  const handleSplitBatch = async (id: string) => {
+    const res = await apiPost<any[]>(`/donations/${id}/split`, {});
+    if (res && Array.isArray(res) && res.length === 2) {
+      setInventoryBatches((prev) => {
+        const idx = prev.findIndex((b) => b.id === id);
+        if (idx !== -1) {
+          const copy = [...prev];
+          copy.splice(idx, 1, ...res);
+          return copy;
+        }
+        return prev;
+      });
+    } else {
+      // Local fallback split
+      setInventoryBatches((prev) => {
+        const idx = prev.findIndex((b) => b.id === id);
+        if (idx === -1) return prev;
+        const orig = prev[idx];
+        const halfW = Math.round(((parseFloat(orig.weight) || 20) / 2) * 10) / 10;
+        const sub1 = { ...orig, id: `${orig.id}-A`, item: `${orig.item} (Split A)`, weight: `${halfW} kg` };
+        const sub2 = { ...orig, id: `${orig.id}-B`, item: `${orig.item} (Split B)`, weight: `${halfW} kg` };
+        const copy = [...prev];
+        copy.splice(idx, 1, sub1, sub2);
+        return copy;
+      });
+    }
   };
 
   const isMapTab =
@@ -311,9 +380,9 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
               </div>
 
               <div className="topbar-actions">
-                <div className="topbar-pulse-indicator">
-                  <span className="signal-dot signal-dot-live" />
-                  <small>Mutha River Corridor Live</small>
+                <div className="topbar-pulse-indicator macos-glass-pill">
+                  <span className={`signal-dot ${isBackendConnected ? "signal-dot-live" : "signal-dot-warm"}`} />
+                  <small>{isBackendConnected ? "API Connected (Port 4000)" : "Mutha River Corridor Live"}</small>
                 </div>
 
                 {/* Profile Pill (Top-Right) */}
@@ -550,9 +619,7 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
                           <td>
                             <button
                               className="macos-glass-button"
-                              onClick={() => {
-                                alert(`Splitting ${batch.id} into 2 transport sub-batches of equal weight.`);
-                              }}
+                              onClick={() => handleSplitBatch(batch.id)}
                             >
                               Split Batch
                             </button>
@@ -777,7 +844,12 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
                   <div className="header-stat-pills">
                     <button
                       className="primary-button macos-primary-button"
-                      onClick={() => alert("Smart matching engine executed: 3 candidate pairings optimized.")}
+                      onClick={async () => {
+                        setDispatchQueue((prev) =>
+                          prev.map((d) => (d.status === "Pending Approval" ? { ...d, status: "Dispatched (En Route)" } : d))
+                        );
+                        await apiPost("/dispatch/auto-match", {});
+                      }}
                     >
                       <Zap size={16} />
                       <span>Auto-Match All (3 Pending)</span>
@@ -1182,22 +1254,21 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
                   </button>
                 </div>
                 <form
-                  onSubmit={(e) => {
+                  onSubmit={async (e) => {
                     e.preventDefault();
-                    setRequestsList((prev) => [
-                      {
-                        id: `REQ-${Math.floor(Math.random() * 900 + 100)}`,
-                        shelter: "Shivaji Nagar Rain Basera",
-                        items: "50 Fresh Meals",
-                        urgency: "High",
-                        timeNeeded: "Within 30 min",
-                        status: "Unfulfilled",
-                        dietary: "Vegetarian",
-                        contact: "Anita Kulkarni (+91 98220 11234)",
-                      },
-                      ...prev,
-                    ]);
+                    const newReq = {
+                      id: `REQ-${Math.floor(Math.random() * 900 + 100)}`,
+                      shelter: "Shivaji Nagar Rain Basera",
+                      items: "50 Fresh Meals",
+                      urgency: "High",
+                      timeNeeded: "Within 30 min",
+                      status: "Unfulfilled",
+                      dietary: "Vegetarian",
+                      contact: "Anita Kulkarni (+91 98220 11234)",
+                    };
+                    setRequestsList((prev) => [newReq, ...prev]);
                     setNewRequestModal(false);
+                    await apiPost("/requests", newReq);
                   }}
                   className="modal-form"
                 >
@@ -1226,23 +1297,22 @@ export function DashboardView({ role, onLogout }: DashboardViewProps) {
                   </button>
                 </div>
                 <form
-                  onSubmit={(e) => {
+                  onSubmit={async (e) => {
                     e.preventDefault();
-                    setInventoryBatches((prev) => [
-                      {
-                        id: `BATCH-${Math.floor(Math.random() * 900 + 100)}`,
-                        source: "FC Road Community Kitchen",
-                        item: "60 Fresh Chapati & Rice Bowls",
-                        cookedAt: "Just Now",
-                        expiresIn: "45 mins",
-                        temp: "Hot (65°C)",
-                        weight: "18 kg",
-                        status: "Ready for Pickup",
-                        assignedRider: "Unassigned",
-                      },
-                      ...prev,
-                    ]);
+                    const newBatch = {
+                      id: `BATCH-${Math.floor(Math.random() * 900 + 100)}`,
+                      source: "FC Road Community Kitchen",
+                      item: "60 Fresh Chapati & Rice Bowls",
+                      cookedAt: "Just Now",
+                      expiresIn: "45 mins",
+                      temp: "Hot (65°C)",
+                      weight: "18 kg",
+                      status: "Ready for Pickup",
+                      assignedRider: "Unassigned",
+                    };
+                    setInventoryBatches((prev) => [newBatch, ...prev]);
                     setNewBatchModal(false);
+                    await apiPost("/donations", newBatch);
                   }}
                   className="modal-form"
                 >
