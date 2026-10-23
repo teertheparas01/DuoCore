@@ -98,6 +98,7 @@ export interface ApiRider {
     volumeLitres: number;
     fragileUnits: number;
   };
+  vehicleType?: string;
   currentLocation?: {
     latitude: number;
     longitude: number;
@@ -115,6 +116,71 @@ export interface ApiReservation {
   status: string;
   pickupOtp: string;
   deliveryOtp: string;
+  route?: {
+    distanceKm: number;
+    travelMinutes: number;
+    trafficFactor: number;
+    estimatedArrival: string;
+    expiryRisk: string;
+  };
+  load?: {
+    itemCount: number;
+    weightKg: number;
+    volumeLitres: number;
+    fragileUnits: number;
+  };
+}
+
+export interface ApiIncident {
+  id: string;
+  type: string;
+  reservationId?: string;
+  batchId?: string;
+  receiverRequestId?: string;
+  riderId?: string;
+  message: string;
+  createdAt: string;
+  severity: 'INFO' | 'WARNING' | 'CRITICAL';
+  metadata?: Record<string, string | number | boolean>;
+}
+
+export interface ApiTransfer {
+  id: string;
+  reservationId: string;
+  fromRiderId: string;
+  toRiderId: string;
+  quantity: number;
+  recordedAt: string;
+  note?: string;
+}
+
+export interface ApiAuditEvent {
+  id: string;
+  actorId: string;
+  type: string;
+  entityType: string;
+  entityId: string;
+  at: string;
+  details?: Record<string, unknown>;
+}
+
+export interface ApiNotification {
+  id: string;
+  recipientId: string;
+  channel: 'IN_APP' | 'SMS' | 'PUSH';
+  title: string;
+  message: string;
+  createdAt: string;
+  read: boolean;
+}
+
+export interface ApiSimulationSettings {
+  currentTime: string;
+  locationUpdateIntervalSeconds: number;
+  noResponseAfterSeconds: number;
+  reservationWindowFraction: number;
+  defaultTrafficFactor: number;
+  routingSpeedKph: number;
 }
 
 export interface ApiState {
@@ -123,11 +189,11 @@ export interface ApiState {
   receiverRequests: ApiRequest[];
   riders: ApiRider[];
   reservations: ApiReservation[];
-  incidents: any[];
-  notifications: any[];
-  simulation: {
-    currentTime: string;
-  };
+  incidents: ApiIncident[];
+  notifications: ApiNotification[];
+  transfers: ApiTransfer[];
+  auditEvents: ApiAuditEvent[];
+  simulation: ApiSimulationSettings;
 }
 
 export const api = {
@@ -311,8 +377,43 @@ export const api = {
     return request<ApiState>("/simulation/seed", { method: "POST" }, actorId);
   },
 
-  async resetSimulation(actorId = "user-coordinator-1"): Promise<ApiState> {
-    return request<ApiState>("/simulation/reset", { method: "POST" }, actorId);
+  async listIncidents(): Promise<ApiIncident[]> {
+    return request<ApiIncident[]>("/incidents");
+  },
+
+  async listTransfers(): Promise<ApiTransfer[]> {
+    return request<ApiTransfer[]>("/transfers");
+  },
+
+  async listAuditEvents(): Promise<ApiAuditEvent[]> {
+    return request<ApiAuditEvent[]>("/audit");
+  },
+
+  async listNotifications(recipientId?: string): Promise<ApiNotification[]> {
+    const path = recipientId ? `/notifications?recipientId=${encodeURIComponent(recipientId)}` : "/notifications";
+    return request<ApiNotification[]>(path);
+  },
+
+  async markNotificationRead(notificationId: string): Promise<any> {
+    return request<any>(
+      `/notifications/${notificationId}/read`,
+      { method: "PATCH" }
+    );
+  },
+
+  async getSimulationSettings(): Promise<ApiSimulationSettings> {
+    return request<ApiSimulationSettings>("/simulation");
+  },
+
+  async updateSimulationSettings(settings: Partial<ApiSimulationSettings>, actorId = "user-coordinator-1"): Promise<any> {
+    return request<any>(
+      "/simulation",
+      {
+        method: "PATCH",
+        body: JSON.stringify(settings),
+      },
+      actorId
+    );
   },
 
   subscribeEvents(onEvent: (event: any) => void): () => void {
@@ -341,5 +442,5 @@ export const api = {
     return () => {
       eventSource.close();
     };
-  },
+  }
 };
